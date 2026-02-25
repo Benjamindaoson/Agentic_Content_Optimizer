@@ -1,0 +1,72 @@
+{
+  "version": "2026-02-22",
+  "platform": "xiaohongshu",
+  "metrics": {
+    "likes": {
+      "primary": [
+        "[class*=\"like\"] [class*=\"count\"]",
+        ".like-wrapper .count"
+      ],
+      "fallback": [
+        "[data-testid*=\"like\"]",
+        "[class*=\"like\"]"
+      ],
+      "text_patterns": [
+        "赞",
+        "like"
+      ]
+    },
+    "comments": {
+      "primary": [
+        "[class*=\"comment\"] [class*=\"count\"]",
+        ".comment-wrapper .count"
+      ],
+      "fallback": [
+        "[data-testid*=\"comment\"]",
+        "[class*=\"comment\"]"
+      ],
+      "text_patterns": [
+        "评论",
+        "comment"
+      ]
+    },
+    "saves": {
+      "primary": [
+        "[class*=\"collect\"] [class*=\"count\"]",
+        ".collect-wrapper .count"
+      ],
+      "fallback": [
+        "[data-testid*=\"collect\"]",
+        "[class*=\"collect\"]"
+      ],
+      "text_patterns": [
+        "收藏",
+        "collect"
+      ]
+    },
+    "shares": {
+      "primary": [
+        "[class*=\"share\"] [class*=\"count\"]",
+        ".share-wrapper .count"
+      ],
+      "fallback": [
+        "[data-testid*=\"share\"]",
+        "[class*=\"share\"]"
+      ],
+      "text_patterns": [
+        "分享",
+        "share"
+      ]
+    },
+    "impressions": {
+      "primary": [],
+      "fallback": [],
+      "text_patterns": [
+        "浏览",
+        "观看",
+        "曝光",
+        "view"
+      ]
+    }
+  }
+}

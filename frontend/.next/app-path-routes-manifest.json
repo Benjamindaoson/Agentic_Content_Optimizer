@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/generate/page": "/generate",
+  "/data-import/page": "/data-import",
+  "/dashboard-new.deprecated/page": "/dashboard-new.deprecated",
+  "/login/page": "/login",
+  "/control-center/page": "/control-center",
+  "/page": "/",
+  "/register/page": "/register",
+  "/viral/page": "/viral",
+  "/strategy-analytics/page": "/strategy-analytics"
+}

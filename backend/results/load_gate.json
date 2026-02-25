@@ -1,0 +1,24 @@
+{
+  "url": "http://127.0.0.1:8000/health/live",
+  "method": "GET",
+  "duration_sec": 20,
+  "concurrency": 8,
+  "qps_per_worker": 2.0,
+  "requests_total": 312,
+  "success_count": 312,
+  "failure_count": 0,
+  "success_rate": 1.0,
+  "rps": 15.165,
+  "latency_ms": {
+    "avg": 10.22,
+    "p50": 9.669,
+    "p95": 17.474,
+    "p99": 24.623,
+    "max": 31.343
+  },
+  "failed_samples": [],
+  "thresholds": {
+    "max_p95_ms": 800.0,
+    "min_success_rate": 0.995
+  }
+}

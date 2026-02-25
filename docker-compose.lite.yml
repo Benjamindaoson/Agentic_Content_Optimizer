@@ -1,0 +1,127 @@
+version: '3.8'
+
+# =============================================================================
+# Growth Flywheel 2.5 — Lite Edition (无 GPU 依赖)
+#
+# 仅包含核心服务，适合个人开发者和小团队快速体验。
+# 使用云端 LLM API (DeepSeek / OpenAI / Claude) 替代本地 vLLM。
+#
+# 启动: docker compose -f docker-compose.lite.yml up -d
+# 停止: docker compose -f docker-compose.lite.yml down
+# =============================================================================
+
+services:
+  # PostgreSQL 15 — 主数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: gf-lite-postgres
+    environment:
+      POSTGRES_DB: growth_flywheel
+      POSTGRES_USER: growth_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gf_dev_2025}
+    volumes:
+      - lite_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U growth_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gf-lite
+
+  # Redis 7 — 缓存 + 消息队列
+  redis:
+    image: redis:7-alpine
+    container_name: gf-lite-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - lite_redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gf-lite
+
+  # Qdrant — 向量数据库
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: gf-lite-qdrant
+    volumes:
+      - lite_qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - gf-lite
+
+  # FastAPI 后端
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gf-lite-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql://growth_user:${POSTGRES_PASSWORD:-gf_dev_2025}@postgres:5432/growth_flywheel
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      # LLM — 使用云端 API (用户填写自己的 key)
+      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks:
+      - gf-lite
+
+  # Next.js 前端 (dev mode)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: gf-lite-frontend
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      - api
+    networks:
+      - gf-lite
+
+volumes:
+  lite_postgres_data:
+  lite_redis_data:
+  lite_qdrant_data:
+
+networks:
+  gf-lite:
+    driver: bridge

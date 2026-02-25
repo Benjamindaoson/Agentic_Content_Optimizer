@@ -1,0 +1,46 @@
+{
+  "ready": {
+    "pass": true,
+    "detail": {
+      "status_code": 200,
+      "data": {
+        "status": "ready",
+        "core": {
+          "startup": true,
+          "database": true,
+          "redis": true
+        },
+        "startup": {
+          "started": true,
+          "started_at": 1771761801,
+          "optional_inits": {
+            "system_upgrade": false,
+            "online_learning": true,
+            "mlops": true
+          },
+          "routers_loaded": [
+            "app.api.auth",
+            "app.api.v1.api_v4_rag",
+            "app.api.v1.api_v5_langgraph",
+            "app.api.v1.api_ml_feedback",
+            "app.api.v1.api_data_import",
+            "app.api.v1.api_dashboard",
+            "app.api.v1.api_outcomes",
+            "app.api.v1.api_trend_radar",
+            "app.api.v1.api_prompts",
+            "app.shared.websocket.routes"
+          ],
+          "routers_skipped": [
+            "app.api.v1.api_v4_rl",
+            "app.api.v1.api_ml_training"
+          ]
+        },
+        "degraded": true
+      }
+    }
+  },
+  "load_gate_exit_code": 0,
+  "load_gate_stdout_tail": "{\n  \"url\": \"http://127.0.0.1:8000/health/live\",\n  \"method\": \"GET\",\n  \"duration_sec\": 20,\n  \"concurrency\": 8,\n  \"qps_per_worker\": 2.0,\n  \"requests_total\": 312,\n  \"success_count\": 312,\n  \"failure_count\": 0,\n  \"success_rate\": 1.0,\n  \"rps\": 15.199,\n  \"latency_ms\": {\n    \"avg\": 10.586,\n    \"p50\": 9.811,\n    \"p95\": 19.378,\n    \"p99\": 29.612,\n    \"max\": 33.047\n  },\n  \"failed_samples\": [],\n  \"thresholds\": {\n    \"max_p95_ms\": 800.0,\n    \"min_success_rate\": 0.995\n  }\n}\n",
+  "load_gate_stderr_tail": "",
+  "pass": true
+}

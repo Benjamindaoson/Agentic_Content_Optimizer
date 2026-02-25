@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/generate/page": "app/generate/page.js",
+  "/data-import/page": "app/data-import/page.js",
+  "/dashboard-new.deprecated/page": "app/dashboard-new.deprecated/page.js",
+  "/login/page": "app/login/page.js",
+  "/control-center/page": "app/control-center/page.js",
+  "/page": "app/page.js",
+  "/register/page": "app/register/page.js",
+  "/viral/page": "app/viral/page.js",
+  "/strategy-analytics/page": "app/strategy-analytics/page.js"
+}

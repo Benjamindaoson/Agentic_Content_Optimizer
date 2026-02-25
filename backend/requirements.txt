@@ -1,0 +1,81 @@
+# FastAPI Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+
+# Redis
+redis==5.0.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# LangChain & LangGraph
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langgraph>=0.2.60
+
+# LLM Providers
+anthropic>=0.40.0
+openai>=1.60.0
+google-generativeai>=0.8.0
+
+# Vector Database
+qdrant-client==1.7.3
+
+# MinIO
+minio==7.2.3
+
+# Utilities
+python-dotenv==1.0.0
+httpx==0.26.0
+aiofiles==23.2.1
+orjson==3.9.12
+tenacity==8.2.3
+requests==2.31.0
+tiktoken>=0.8.0
+
+# Monitoring
+prometheus-client==0.19.0
+
+# Data Processing
+tqdm==4.66.1
+
+# Task Queue
+celery==5.3.6
+celery[redis]==5.3.6
+
+# Web Scraping
+playwright==1.41.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Image Processing
+Pillow==10.2.0
+opencv-python==4.9.0.80
+
+# Development
+pytest==7.4.4
+pytest-asyncio==0.23.3
+black==24.1.1
+ruff==0.1.15
+mypy==1.8.0
+rank-bm25==0.2.2
+
+# Reranking (Cohere)
+cohere>=5.0.0
+
+# Search (BM25 persistence)
+meilisearch>=0.31.0
+
+# Structured Logging
+structlog>=24.0.0

@@ -1,0 +1,2 @@
+# Data Directory
+This directory stores raw and processed data files.

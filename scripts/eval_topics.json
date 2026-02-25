@@ -1,0 +1,12 @@
+{
+  "topics": [
+    {"topic": "AI 提效工具推荐", "platform": "xiaohongshu"},
+    {"topic": "如何提高工作效率", "platform": "xiaohongshu"},
+    {"topic": "适合新手的 AI 绘画工具", "platform": "xiaohongshu"},
+    {"topic": "2024年内容创作趋势", "platform": "xiaohongshu"},
+    {"topic": "如何用 AI 打造个人 IP", "platform": "xiaohongshu"},
+    {"topic": "热门话题讨论", "platform": "weibo"},
+    {"topic": "短视频拍摄技巧", "platform": "douyin"},
+    {"topic": "如何提高短视频完播率", "platform": "douyin"}
+  ]
+}

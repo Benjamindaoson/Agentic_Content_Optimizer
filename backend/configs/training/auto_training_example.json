@@ -1,0 +1,7 @@
+{
+  "platform": "xiaohongshu",
+  "persona": "学生党",
+  "niche": "AI工具",
+  "sft_days": 30,
+  "dpo_days": 30
+}

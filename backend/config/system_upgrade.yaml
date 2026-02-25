@@ -1,0 +1,265 @@
+# 系统升级配置文件
+# System Upgrade Configuration
+
+# 混合奖励模型 V1 配置（旧版）
+hybrid_reward:
+  enabled: false  # 推荐使用 V2
+  metric_weights:
+    ctr: 0.2
+    completion: 0.3
+    engagement: 0.3
+    conversion: 0.2
+  quality_threshold: 0.7
+  alpha: 0.6  # 预测指标权重
+  beta: 0.4   # 质量约束权重
+
+# 混合奖励模型 V2 配置（推荐）
+hybrid_reward_v2:
+  enabled: true
+  predictor_model_dir: "models/metric_predictors"  # 预测模型目录
+  deployment_mode: "full"  # shadow, hybrid, full
+  hybrid_alpha: 0.5  # 混合模式的插值系数（仅在 hybrid 模式下使用）
+
+  # 三层权重
+  weights:
+    real_world: 0.6      # 真实世界奖励（数据驱动）
+    quality: 0.3         # 内容质量奖励
+    system_health: 0.1   # 系统健康奖励
+
+  # 真实指标权重
+  real_metric_weights:
+    ctr: 0.3           # 点击率
+    completion: 0.3    # 完播率
+    engagement: 0.2    # 互动率
+    conversion: 0.2    # 转化率
+
+# 趋势质量过滤配置
+trend_quality_filter:
+  enabled: true
+  threshold: 0.6
+  max_results: 10
+  weights:
+    freshness: 0.2
+    credibility: 0.2
+    audience_match: 0.3
+    brand_fit: 0.3
+  brand_guidelines:
+    tone_keywords:
+      - "专业"
+      - "可信"
+      - "创新"
+      - "用户至上"
+    forbidden_words:
+      - "低俗"
+      - "色情"
+      - "暴力"
+      - "赌博"
+      - "欺诈"
+    target_audience:
+      age_range: [18, 45]
+      interests: []
+      pain_points: []
+
+# 多样性感知经验池配置
+diversity_experience_pool:
+  enabled: true
+  max_size: 1000
+  max_episodes: 100
+  novelty_decay: 0.95
+  default_sampling_strategy: "balanced"  # random, best, balanced, diverse, epsilon_greedy
+  epsilon: 0.2  # for epsilon_greedy
+
+# 模型路由配置
+model_router:
+  enabled: true
+  models:
+    claude:
+      provider: "claude"
+      version: "claude-3-5-sonnet-20240620"
+      max_tokens: 4000
+      temperature: 0.7
+      timeout: 30.0
+      cost_per_1k_tokens: 0.015
+    deepseek:
+      provider: "deepseek"
+      version: "deepseek-chat"
+      max_tokens: 4000
+      temperature: 0.7
+      timeout: 30.0
+      cost_per_1k_tokens: 0.001
+    gemini:
+      provider: "gemini"
+      version: "gemini-pro"
+      max_tokens: 4000
+      temperature: 0.7
+      timeout: 30.0
+      cost_per_1k_tokens: 0.0005
+
+  routing_rules:
+    - task_type: "trend_extraction"
+      primary_model: "claude"
+      fallback_models: ["deepseek"]
+    - task_type: "content_generation"
+      primary_model: "deepseek"
+      fallback_models: ["claude", "gemini"]
+    - task_type: "quality_evaluation"
+      primary_model: "claude"
+      fallback_models: ["gemini"]
+
+  canary:
+    enabled: false
+    canary_model: "gemini"
+    traffic_percent: 10.0
+    success_threshold: 0.95
+    min_requests: 100
+
+# 回归测试配置
+regression_test:
+  enabled: true
+  test_cases_path: "./tests/regression/test_cases.json"
+  baseline_path: "./tests/regression/baseline.json"
+  auto_run_on_deploy: true
+
+# 层级动作空间配置
+hierarchical_action_space:
+  enabled: true
+  exploration_rate: 0.2
+
+# 生成追踪配置
+generation_tracer:
+  enabled: true
+  save_to_db: true
+  log_level: "INFO"
+
+# 多样性评分器配置（新增）
+diversity_scorer:
+  enabled: false  # 默认关闭，需要 embedding 函数
+  near_dup_threshold: 0.92  # 相似度阈值（需要校准）
+  near_dup_penalty: 0.85    # 近重复惩罚强度
+  strategy_freq_penalty: 0.25  # 策略频率惩罚
+  strategy_freq_start: 3    # 频率惩罚起效阈值
+  max_refs: 200             # 参考池最大大小
+  topk: 5                   # Top-K 相似度计算
+  use_qdrant: false         # 是否使用 Qdrant 加速
+  qdrant_collection: "diversity_pool"
+
+# Thompson Sampling 配置（新增）
+thompson_sampling:
+  enabled: false  # 默认关闭
+  use_hierarchical: true    # 使用层级采样（推荐）
+  temperature: 1.0          # 探索强度
+  min_pulls: 3              # 最小尝试次数
+  prior_mean: 0.5           # 先验均值
+  prior_std: 0.3            # 先验标准差
+  prior_weight: 3.0         # 先验等效样本数
+  use_neighbor_sharing: false  # 近邻泛化（需要 embeddings）
+  n_neighbors: 5            # 近邻数量
+
+# 生产监控配置（新增）
+monitoring:
+  enabled: true
+  metrics:
+    # 重复率监控
+    duplication:
+      enabled: true
+      threshold: 0.92
+      alert_warning: 0.3    # 重复率 > 30% 告警
+      alert_critical: 0.5   # 重复率 > 50% 严重告警
+
+    # 策略熵监控
+    entropy:
+      enabled: true
+      alert_warning: 0.3    # 熵 < 0.3 告警
+      alert_critical: 0.1   # 熵 < 0.1 严重告警
+
+    # 探索率监控
+    exploration:
+      enabled: true
+      alert_low: 0.2        # 探索率 < 20% 告警
+      alert_high: 0.8       # 探索率 > 80% 提示
+
+    # Reward 分布监控
+    reward_distribution:
+      enabled: true
+      window_size: 1000     # 滑动窗口大小
+      std_min: 0.05         # 标准差最小值
+      std_max: 0.5          # 标准差最大值
+
+    # Top-K 稳定性监控
+    topk_stability:
+      enabled: true
+      k: 10                 # Top-K 数量
+      alert_threshold: 0.3  # 重合度 < 30% 告警
+
+# 灰度发布配置（新增）
+rollout:
+  diversity_scorer_traffic: 0.0   # 多样性评分器流量比例（0-1）
+  thompson_sampling_traffic: 0.0  # Thompson Sampling 流量比例（0-1）
+  ab_test_enabled: false          # 是否启用 A/B 测试
+  ab_test_control_ratio: 0.5      # 对照组比例
+
+# 病毒式内容追踪配置（v2.6 新增）
+viral_content_tracker:
+  enabled: true
+  platforms:
+    - "tiktok"
+    - "xiaohongshu"
+    - "douyin"
+
+  # 爆款判定标准
+  criteria:
+    # 绝对指标阈值
+    min_views: 100000
+    min_likes: 5000
+    min_shares: 1000
+    min_comments: 500
+
+    # 相对指标阈值（百分位）
+    views_percentile: 0.95
+    engagement_percentile: 0.90
+
+    # 速度指标阈值
+    min_velocity_score: 0.7
+    velocity_window_hours: 24
+
+    # 综合权重
+    absolute_weight: 0.3
+    relative_weight: 0.4
+    velocity_weight: 0.3
+
+    # 最终阈值
+    min_viral_score: 0.75
+
+  # 追踪频率
+  tracking_interval_minutes: 60  # 每小时追踪一次
+
+  # 数据保留
+  retention_days: 90  # 保留 90 天数据
+
+# 爆款模式库配置（v2.6 新增）
+pattern_library:
+  enabled: true
+  storage_path: "data/viral/pattern_library.json"
+
+  # 相似度搜索
+  similarity_search:
+    enabled: true
+    min_similarity: 0.7
+    top_k: 10
+
+  # 性能追踪
+  performance_tracking:
+    enabled: true
+    min_uses_for_stats: 5  # 最少使用次数才计入统计
+
+  # 趋势分析
+  trending:
+    enabled: true
+    window_days: 7
+    top_k: 20
+
+  # 版本控制
+  versioning:
+    enabled: true
+    max_versions_per_pattern: 5
+

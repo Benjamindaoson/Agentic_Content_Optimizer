@@ -1,0 +1,279 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 15 - 主数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: growth-postgres
+    environment:
+      POSTGRES_DB: growth_flywheel
+      POSTGRES_USER: growth_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U growth_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - growth-network
+
+  # Redis 7 - 缓存 + 消息队列
+  redis:
+    image: redis:7-alpine
+    container_name: growth-redis
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - growth-network
+
+  # Qdrant - 向量数据库
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: growth-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - growth-network
+
+  # MinIO - 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: growth-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - growth-network
+
+  # MinIO 初始化
+  minio-init:
+    image: minio/mc:latest
+    container_name: growth-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY}
+    volumes:
+      - ./scripts/init_minio.sh:/init_minio.sh
+    entrypoint: ["/bin/sh", "/init_minio.sh"]
+    networks:
+      - growth-network
+
+  # vLLM - 高性能 LLM 推理 (optional, 无 GPU 环境不启动)
+  vllm:
+    profiles:
+      - gpu
+    image: vllm/vllm-openai:latest
+    container_name: growth-vllm
+    command: --model meta-llama/Llama-3.1-8B-Instruct --dtype auto --api-key ${VLLM_API_KEY}
+    volumes:
+      - vllm_cache:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      CUDA_VISIBLE_DEVICES: 0
+    networks:
+      - growth-network
+
+  # ComfyUI - 图像生成 (optional, 无 GPU 环境不启动)
+  comfyui:
+    profiles:
+      - gpu
+    image: yanwk/comfyui-boot:latest
+    container_name: growth-comfyui
+    volumes:
+      - comfyui_data:/root
+      - ./comfyui/workflows:/root/ComfyUI/user/default/workflows
+    ports:
+      - "8188:8188"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      CUDA_VISIBLE_DEVICES: 1
+    networks:
+      - growth-network
+
+  # FastAPI Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: growth-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 4
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://growth_user:${POSTGRES_PASSWORD}@postgres:5432/growth_flywheel
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      VLLM_API_BASE: http://vllm:8000/v1
+      VLLM_API_KEY: ${VLLM_API_KEY}
+      COMFYUI_API_BASE: http://comfyui:8188
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - growth-network
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: growth-celery-worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    environment:
+      DATABASE_URL: postgresql://growth_user:${POSTGRES_PASSWORD}@postgres:5432/growth_flywheel
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      VLLM_API_BASE: http://vllm:8000/v1
+      VLLM_API_KEY: ${VLLM_API_KEY}
+      COMFYUI_API_BASE: http://comfyui:8188
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - growth-network
+
+  # Celery Beat (定时任务)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: growth-celery-beat
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    environment:
+      DATABASE_URL: postgresql://growth_user:${POSTGRES_PASSWORD}@postgres:5432/growth_flywheel
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - growth-network
+
+  # Prometheus - 监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: growth-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - growth-network
+
+  # Grafana - 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: growth-grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_INSTALL_PLUGINS: redis-datasource
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - growth-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  minio_data:
+  vllm_cache:
+  comfyui_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  growth-network:
+    driver: bridge

@@ -1,0 +1,15 @@
+{
+  "platform": "xiaohongshu",
+  "adapter_name": "xhs_student_ai_tools_sft_v1",
+  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "persona": "学生党",
+  "niche": "AI工具",
+  "days": 30,
+  "min_engagement_score": 0.01,
+  "max_samples": 5000,
+  "num_train_epochs": 3,
+  "per_device_train_batch_size": 4,
+  "gradient_accumulation_steps": 4,
+  "learning_rate": 2e-4,
+  "eval_split": 0.1
+}
