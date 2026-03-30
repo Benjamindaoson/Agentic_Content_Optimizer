@@ -1,4 +1,4 @@
-# Growth Flywheel 2.5
+# Growth Flywheel 
 
 **AI 驱动的内容策略进化引擎**
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 💡 为什么选择 Growth Flywheel 2.5？
+## 💡 为什么选择 Growth Flywheel ？
 
 ### 一句话价值主张
 **用 AI 自动化内容创作，通过强化学习持续优化，让每一条内容都是爆款。**
