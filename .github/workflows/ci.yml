@@ -35,7 +35,7 @@ jobs:
       - name: Run Black
         run: |
           cd backend
-          black --check             app/engine/agents/workflow/multimodal_content_workflow.py             app/engine/agents/workflow/multimodal_content_adapters.py             app/engine/agents/workflow/multimodal_media.py             app/engine/agents/workflow/multimodal_eval.py             app/engine/agents/workflow/multimodal_persistence.py             app/engine/agents/workflow/multimodal_service.py             app/api/v1/api_multimodal_production.py             app/models/multimodal_production.py             tests/test_workflow/test_multimodal_content_workflow.py             tests/test_workflow/test_multimodal_content_adapters.py             tests/test_workflow/test_multimodal_production_infra.py
+          black --diff --check             app/engine/agents/workflow/multimodal_content_workflow.py             app/engine/agents/workflow/multimodal_content_adapters.py             app/engine/agents/workflow/multimodal_media.py             app/engine/agents/workflow/multimodal_eval.py             app/engine/agents/workflow/multimodal_persistence.py             app/engine/agents/workflow/multimodal_service.py             app/api/v1/api_multimodal_production.py             app/models/multimodal_production.py             tests/test_workflow/test_multimodal_content_workflow.py             tests/test_workflow/test_multimodal_content_adapters.py             tests/test_workflow/test_multimodal_production_infra.py
 
   legacy-lint-audit:
     name: Legacy Lint Audit
