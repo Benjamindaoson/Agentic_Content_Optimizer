@@ -98,6 +98,18 @@ class Settings(BaseSettings):
         default=None,
         env="MULTIMODAL_LLM_MODEL",
     )
+    MULTIMODAL_JUDGE_ENABLED: bool = Field(
+        default=False,
+        env="MULTIMODAL_JUDGE_ENABLED",
+    )
+    MULTIMODAL_JUDGE_MODEL: str = Field(
+        default="gpt-6-astra",
+        env="MULTIMODAL_JUDGE_MODEL",
+    )
+    MULTIMODAL_JUDGE_SAMPLE_COUNT: int = Field(
+        default=4,
+        env="MULTIMODAL_JUDGE_SAMPLE_COUNT",
+    )
     FFMPEG_BIN: str = Field(default="ffmpeg", env="FFMPEG_BIN")
     FFPROBE_BIN: str = Field(default="ffprobe", env="FFPROBE_BIN")
 
