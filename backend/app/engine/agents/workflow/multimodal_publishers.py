@@ -148,9 +148,11 @@ class TikTokContentPublisher:
         *,
         client: Optional[httpx.AsyncClient] = None,
     ) -> Dict[str, Any]:
-        owns_client = client is None
-        resolved_client = client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
+        owns_client = client is None and self._client is None
+        resolved_client = (
+            client
+            or self._client
+            or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         )
         try:
             response = await resolved_client.post(
@@ -170,9 +172,11 @@ class TikTokContentPublisher:
         *,
         client: Optional[httpx.AsyncClient] = None,
     ) -> Dict[str, Any]:
-        owns_client = client is None
-        resolved_client = client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
+        owns_client = client is None and self._client is None
+        resolved_client = (
+            client
+            or self._client
+            or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         )
         try:
             response = await resolved_client.post(
@@ -194,9 +198,11 @@ class TikTokContentPublisher:
     ) -> Dict[str, Any]:
         """Fetch public video engagement metrics using TikTok Display API."""
 
-        owns_client = client is None
-        resolved_client = client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
+        owns_client = client is None and self._client is None
+        resolved_client = (
+            client
+            or self._client
+            or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         )
         try:
             response = await resolved_client.post(
