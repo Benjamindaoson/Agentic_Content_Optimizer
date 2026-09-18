@@ -183,8 +183,7 @@ async def test_visual_generation_retries_transient_failure():
     assert state.status == ProductionStatus.COMPLETED
     assert media.visual_calls == 3
     assert any(
-        error["message"] == "temporary video provider timeout"
-        for error in state.errors
+        error["message"] == "temporary video provider timeout" for error in state.errors
     )
 
 
