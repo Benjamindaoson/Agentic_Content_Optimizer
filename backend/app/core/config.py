@@ -110,6 +110,22 @@ class Settings(BaseSettings):
         default=4,
         env="MULTIMODAL_JUDGE_SAMPLE_COUNT",
     )
+    MULTIMODAL_SUBTITLES_ENABLED: bool = Field(
+        default=True,
+        env="MULTIMODAL_SUBTITLES_ENABLED",
+    )
+    MULTIMODAL_BRAND_TEXT: str = Field(
+        default="",
+        env="MULTIMODAL_BRAND_TEXT",
+    )
+    MULTIMODAL_BRAND_FONT: str = Field(
+        default="DejaVu Sans",
+        env="MULTIMODAL_BRAND_FONT",
+    )
+    MULTIMODAL_BRAND_FONT_SIZE: int = Field(
+        default=28,
+        env="MULTIMODAL_BRAND_FONT_SIZE",
+    )
     FFMPEG_BIN: str = Field(default="ffmpeg", env="FFMPEG_BIN")
     FFPROBE_BIN: str = Field(default="ffprobe", env="FFPROBE_BIN")
 
