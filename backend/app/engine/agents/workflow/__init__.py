@@ -10,8 +10,13 @@ from .multimodal_content_adapters import (
     LLMContentPlanner,
     StructuredOutputLLM,
 )
-from .multimodal_eval import EvalThresholds, MultimodalEvaluationHarness
+from .multimodal_eval import (
+    EvalThresholds,
+    MultimodalEvaluationHarness,
+    OpenAIMultimodalJudge,
+)
 from .multimodal_media import (
+    BrandTemplate,
     ElevenLabsTTSGenerator,
     FFmpegVideoAssembler,
     ProductionMediaToolkit,
@@ -56,8 +61,10 @@ __all__ = [
     "ExistingPlatformPublisher",
     "ElevenLabsTTSGenerator",
     "EvalThresholds",
+    "BrandTemplate",
     "FFmpegVideoAssembler",
     "MultimodalEvaluationHarness",
+    "OpenAIMultimodalJudge",
     "MinIOArtifactStore",
     "MultimodalProductionService",
     "ProductionMediaToolkit",
