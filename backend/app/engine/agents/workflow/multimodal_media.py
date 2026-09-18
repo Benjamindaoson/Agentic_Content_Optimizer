@@ -216,9 +216,7 @@ class ElevenLabsTTSGenerator:
         output_path = artifact_dir / "narration.mp3"
 
         owns_client = self._client is None
-        client = self._client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
-        )
+        client = self._client or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         try:
             response = await client.post(
                 f"{self.api_base}/v1/text-to-speech/{self.voice_id}",
