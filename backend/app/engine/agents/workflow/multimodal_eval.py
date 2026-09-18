@@ -131,7 +131,9 @@ class MultimodalEvaluationHarness:
     @staticmethod
     def _script_score(state: ProductionState) -> float:
         required = ("title", "hook", "body", "cta")
-        present = sum(bool(str(state.script.get(key) or "").strip()) for key in required)
+        present = sum(
+            bool(str(state.script.get(key) or "").strip()) for key in required
+        )
         return present / len(required)
 
     @staticmethod
@@ -202,9 +204,7 @@ class MultimodalEvaluationHarness:
         )
         stdout, stderr = await process.communicate()
         if process.returncode != 0:
-            raise RuntimeError(
-                stderr.decode("utf-8", errors="replace")[-2000:]
-            )
+            raise RuntimeError(stderr.decode("utf-8", errors="replace")[-2000:])
         return json.loads(stdout.decode("utf-8"))
 
     @staticmethod
