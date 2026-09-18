@@ -202,8 +202,7 @@ def get_multimodal_production_service() -> MultimodalProductionService:
         missing.append("ELEVENLABS_VOICE_ID")
     if missing:
         raise RuntimeError(
-            "multimodal production providers are not configured: "
-            + ", ".join(missing)
+            "multimodal production providers are not configured: " + ", ".join(missing)
         )
 
     llm = UnifiedLLMProviderAdapter(
