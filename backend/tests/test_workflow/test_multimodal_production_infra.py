@@ -105,7 +105,10 @@ async def test_runway_video_generator_polls_and_downloads(tmp_path):
                 },
             )
 
-        if request.method == "GET" and str(request.url) == "https://cdn.example/video.mp4":
+        if (
+            request.method == "GET"
+            and str(request.url) == "https://cdn.example/video.mp4"
+        ):
             return httpx.Response(200, content=b"fake-video-bytes")
 
         return httpx.Response(404)
