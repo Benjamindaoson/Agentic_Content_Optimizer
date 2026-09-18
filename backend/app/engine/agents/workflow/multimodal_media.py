@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from .multimodal_artifacts import ArtifactStore
 from .multimodal_content_workflow import (
     AssetKind,
     MediaAsset,
@@ -431,24 +432,40 @@ class ProductionMediaToolkit(MediaToolkit):
         video_generator: RunwayVideoGenerator,
         tts_generator: ElevenLabsTTSGenerator,
         assembler: FFmpegVideoAssembler,
+        artifact_store: Optional[ArtifactStore] = None,
     ) -> None:
         self.video_generator = video_generator
         self.tts_generator = tts_generator
         self.assembler = assembler
+        self.artifact_store = artifact_store
 
     async def generate_visual(
         self,
         shot: StoryboardShot,
         context: Dict[str, Any],
     ) -> MediaAsset:
-        return await self.video_generator.generate(shot, context)
+        asset = await self.video_generator.generate(shot, context)
+        if self.artifact_store is not None:
+            asset = await self.artifact_store.persist(
+                asset,
+                job_id=str(context["job_id"]),
+                category="visuals",
+            )
+        return asset
 
     async def synthesize_voice(
         self,
         script: Dict[str, Any],
         context: Dict[str, Any],
     ) -> MediaAsset:
-        return await self.tts_generator.synthesize(script, context)
+        asset = await self.tts_generator.synthesize(script, context)
+        if self.artifact_store is not None:
+            asset = await self.artifact_store.persist(
+                asset,
+                job_id=str(context["job_id"]),
+                category="audio",
+            )
+        return asset
 
     async def assemble_video(
         self,
@@ -457,9 +474,25 @@ class ProductionMediaToolkit(MediaToolkit):
         voice_asset: MediaAsset,
         context: Dict[str, Any],
     ) -> MediaAsset:
-        return await self.assembler.assemble(
+        resolved_visuals = visual_assets
+        resolved_voice = voice_asset
+        if self.artifact_store is not None:
+            resolved_visuals = {
+                shot_id: await self.artifact_store.materialize(asset)
+                for shot_id, asset in visual_assets.items()
+            }
+            resolved_voice = await self.artifact_store.materialize(voice_asset)
+
+        asset = await self.assembler.assemble(
             storyboard,
-            visual_assets,
-            voice_asset,
+            resolved_visuals,
+            resolved_voice,
             context,
         )
+        if self.artifact_store is not None:
+            asset = await self.artifact_store.persist(
+                asset,
+                job_id=str(context["job_id"]),
+                category="final",
+            )
+        return asset
