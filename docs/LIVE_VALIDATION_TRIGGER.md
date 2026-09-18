@@ -13,3 +13,8 @@ Safety/side-effect constraints for the automated run:
 - Generated TikTok content is marked as AIGC.
 - The live provider workflow fails closed when required credentials are absent.
 - No credentials are committed to the repository.
+
+
+## Retry 2
+
+Re-run requested after splitting credential-independent P2 storage validation and independent P3 credential/scope preflight.
