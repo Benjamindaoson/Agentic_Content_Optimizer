@@ -66,7 +66,7 @@ jobs:
       - name: Execute real MinIO delete-and-recover validation
         run: |
           cd backend
-          python scripts/testing/live_minio_recovery.py
+          PYTHONPATH=. python scripts/testing/live_minio_recovery.py
 
       - name: Upload P2 storage evidence
         if: always()
@@ -229,7 +229,7 @@ jobs:
       - name: Execute P1 + P2
         run: |
           cd backend
-          python scripts/testing/live_multimodal_e2e.py
+          PYTHONPATH=. python scripts/testing/live_multimodal_e2e.py
 
       - name: Verify P1-P2 evidence
         run: |
@@ -338,7 +338,7 @@ jobs:
       - name: Execute P3
         run: |
           cd backend
-          python scripts/testing/live_tiktok_publish_rl.py
+          PYTHONPATH=. python scripts/testing/live_tiktok_publish_rl.py
 
       - name: Upload P3 evidence
         if: always()
