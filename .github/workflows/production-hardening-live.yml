@@ -15,7 +15,7 @@ jobs:
     env:
       RUN_LIVE_MINIO_RECOVERY: "1"
       MULTIMODAL_ARTIFACT_DIR: runtime/minio-recovery-validation
-      MINIO_ENDPOINT: 127.0.0.1:4566
+      MINIO_ENDPOINT: 127.0.0.1:5000
       MINIO_ACCESS_KEY: test
       MINIO_SECRET_KEY: test
       MINIO_SECURE: "false"
@@ -43,19 +43,15 @@ jobs:
 
       - name: Start real S3-compatible object store
         run: |
-          docker run -d --name p2-s3 \
-            -p 4566:4566 \
-            -e SERVICES=s3 \
-            -e AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY" \
-            -e AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_KEY" \
-            localstack/localstack:latest
-          for i in {1..45}; do
-            if curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null; then
+          python -m pip install "moto[server]>=5,<6"
+          moto_server -H 0.0.0.0 -p 5000 >/tmp/moto-s3.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/ >/dev/null; then
               exit 0
             fi
-            sleep 2
+            sleep 1
           done
-          docker logs p2-s3
+          cat /tmp/moto-s3.log
           exit 1
 
       - name: Install backend
@@ -173,7 +169,7 @@ jobs:
       RUNWAYML_RATIO: 720:1280
       MULTIMODAL_JUDGE_MODEL: gpt-5.6-luna
       MULTIMODAL_ARTIFACT_DIR: runtime/multimodal-live-e2e
-      MINIO_ENDPOINT: 127.0.0.1:4566
+      MINIO_ENDPOINT: 127.0.0.1:5000
       MINIO_ACCESS_KEY: test
       MINIO_SECRET_KEY: test
       MINIO_SECURE: "false"
@@ -211,19 +207,15 @@ jobs:
 
       - name: Start real S3-compatible object store
         run: |
-          docker run -d --name multimodal-s3 \
-            -p 4566:4566 \
-            -e SERVICES=s3 \
-            -e AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY" \
-            -e AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_KEY" \
-            localstack/localstack:latest
-          for i in {1..45}; do
-            if curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null; then
+          python -m pip install "moto[server]>=5,<6"
+          moto_server -H 0.0.0.0 -p 5000 >/tmp/moto-s3.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/ >/dev/null; then
               exit 0
             fi
-            sleep 2
+            sleep 1
           done
-          docker logs multimodal-s3
+          cat /tmp/moto-s3.log
           exit 1
 
       - name: Install backend
