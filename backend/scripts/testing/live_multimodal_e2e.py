@@ -11,6 +11,7 @@ and optionally the OpenAI multimodal judge.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -174,20 +175,49 @@ async def main() -> None:
             )
         )
 
-    print(
-        json.dumps(
-            {
-                "status": state.status.value,
-                "final_video": state.final_video.uri,
-                "durable_uri": state.final_video.metadata.get("durable_uri"),
-                "quality_score": state.quality_report.score,
-                "quality_issues": state.quality_report.issues,
-                "judge": state.quality_report.metadata.get("judge"),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
+    recovery = None
+    if artifact_store is not None:
+        final_path = Path(state.final_video.uri)
+        original_hash = hashlib.sha256(final_path.read_bytes()).hexdigest()
+        durable_uri = state.final_video.metadata.get("durable_uri")
+        if not durable_uri:
+            raise RuntimeError("MinIO E2E enabled but final artifact has no durable_uri")
+
+        final_path.unlink()
+        if final_path.exists():
+            raise RuntimeError("failed to delete local final artifact before recovery test")
+
+        recovered = await artifact_store.materialize(state.final_video)
+        recovered_path = Path(recovered.uri)
+        recovered_hash = hashlib.sha256(recovered_path.read_bytes()).hexdigest()
+        if recovered_hash != original_hash:
+            raise RuntimeError(
+                "recovered MinIO artifact hash does not match original"
+            )
+        state.final_video = recovered
+        recovery = {
+            "durable_uri": durable_uri,
+            "recovered_path": str(recovered_path),
+            "sha256": recovered_hash,
+            "passed": True,
+        }
+
+    summary = {
+        "status": state.status.value,
+        "final_video": state.final_video.uri,
+        "durable_uri": state.final_video.metadata.get("durable_uri"),
+        "quality_score": state.quality_report.score,
+        "quality_issues": state.quality_report.issues,
+        "judge": state.quality_report.metadata.get("judge"),
+        "recovery": recovery,
+    }
+
+    report_path = Path(output_dir) / "live_e2e_report.json"
+    report_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
