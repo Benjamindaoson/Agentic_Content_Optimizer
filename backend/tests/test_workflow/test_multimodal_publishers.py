@@ -200,3 +200,27 @@ async def test_tiktok_video_metrics_query_returns_engagement_fields():
     assert metrics["comment_count"] == 2
     assert metrics["share_count"] == 3
     assert metrics["is_aigc"] is True
+
+
+def test_tiktok_chunk_plan_uses_multiple_chunks_above_64mb(tmp_path):
+    video = tmp_path / "large.mp4"
+    video.write_bytes(b"")
+    size = 65 * 1024 * 1024
+    with video.open("r+b") as handle:
+        handle.truncate(size)
+
+    source = TikTokContentPublisher._file_source_info(video)
+
+    assert source["video_size"] == size
+    assert source["total_chunk_count"] == 2
+    assert 5 * 1024 * 1024 <= source["chunk_size"] <= 64 * 1024 * 1024
+
+
+def test_tiktok_small_video_uploads_as_single_chunk(tmp_path):
+    video = tmp_path / "small.mp4"
+    video.write_bytes(b"x" * 1024)
+
+    source = TikTokContentPublisher._file_source_info(video)
+
+    assert source["chunk_size"] == 1024
+    assert source["total_chunk_count"] == 1
