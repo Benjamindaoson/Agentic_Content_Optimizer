@@ -21,6 +21,7 @@ from .multimodal_eval import (
     OpenAIMultimodalJudge,
 )
 from .multimodal_media import (
+    BrandTemplate,
     ElevenLabsTTSGenerator,
     FFmpegVideoAssembler,
     ProductionMediaToolkit,
@@ -262,9 +263,19 @@ def get_multimodal_production_service() -> MultimodalProductionService:
         api_base=settings.ELEVENLABS_API_BASE,
         model_id=settings.ELEVENLABS_MODEL_ID,
     )
+    brand_template = None
+    if settings.MULTIMODAL_BRAND_TEXT.strip():
+        brand_template = BrandTemplate(
+            text=settings.MULTIMODAL_BRAND_TEXT.strip(),
+            font_name=settings.MULTIMODAL_BRAND_FONT,
+            font_size=settings.MULTIMODAL_BRAND_FONT_SIZE,
+        )
+
     assembler = FFmpegVideoAssembler(
         output_dir=settings.MULTIMODAL_ARTIFACT_DIR,
         ffmpeg_bin=settings.FFMPEG_BIN,
+        render_subtitles=settings.MULTIMODAL_SUBTITLES_ENABLED,
+        brand_template=brand_template,
     )
     artifact_store = get_multimodal_artifact_store()
 
