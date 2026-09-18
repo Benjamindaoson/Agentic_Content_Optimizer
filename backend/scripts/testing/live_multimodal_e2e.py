@@ -187,15 +187,15 @@ async def main() -> None:
 
         final_path.unlink()
         if final_path.exists():
-            raise RuntimeError("failed to delete local final artifact before recovery test")
+            raise RuntimeError(
+                "failed to delete local final artifact before recovery test"
+            )
 
         recovered = await artifact_store.materialize(state.final_video)
         recovered_path = Path(recovered.uri)
         recovered_hash = hashlib.sha256(recovered_path.read_bytes()).hexdigest()
         if recovered_hash != original_hash:
-            raise RuntimeError(
-                "recovered MinIO artifact hash does not match original"
-            )
+            raise RuntimeError("recovered MinIO artifact hash does not match original")
         state.final_video = recovered
         recovery = {
             "durable_uri": durable_uri,
