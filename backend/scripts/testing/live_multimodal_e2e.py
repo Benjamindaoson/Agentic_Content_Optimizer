@@ -181,7 +181,9 @@ async def main() -> None:
         original_hash = hashlib.sha256(final_path.read_bytes()).hexdigest()
         durable_uri = state.final_video.metadata.get("durable_uri")
         if not durable_uri:
-            raise RuntimeError("MinIO E2E enabled but final artifact has no durable_uri")
+            raise RuntimeError(
+                "MinIO E2E enabled but final artifact has no durable_uri"
+            )
 
         final_path.unlink()
         if final_path.exists():
