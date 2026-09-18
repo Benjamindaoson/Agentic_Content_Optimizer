@@ -7,6 +7,154 @@ on:
   workflow_dispatch:
 
 jobs:
+  p2-minio-recovery:
+    name: P2 Real MinIO Durability + Recovery
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUN_LIVE_MINIO_RECOVERY: "1"
+      MULTIMODAL_ARTIFACT_DIR: runtime/minio-recovery-validation
+      MINIO_ENDPOINT: 127.0.0.1:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_SECURE: "false"
+      MULTIMODAL_ARTIFACT_BUCKET: videos
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: live-e2e-jwt-secret-key-for-validation-only
+      CORS_ORIGINS: http://localhost:3000
+      ANTHROPIC_API_KEY: test-key
+      OPENAI_API_KEY: test-key
+      QWEN_API_KEY: test-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Start real MinIO
+        run: |
+          docker run -d --name p2-minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            minio/minio:latest server /data --address :9000
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs p2-minio
+          exit 1
+
+      - name: Install backend
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute real MinIO delete-and-recover validation
+        run: |
+          cd backend
+          python scripts/testing/live_minio_recovery.py
+
+      - name: Upload P2 storage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-real-minio-recovery-evidence
+          path: backend/runtime/minio-recovery-validation
+          if-no-files-found: warn
+          retention-days: 7
+
+  p3-credential-preflight:
+    name: P3 TikTok Credential + Scope Preflight
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+      TIKTOK_API_BASE: https://open.tiktokapis.com
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: live-e2e-jwt-secret-key-for-validation-only
+      CORS_ORIGINS: http://localhost:3000
+      MINIO_ACCESS_KEY: validation-access
+      MINIO_SECRET_KEY: validation-secret
+      OPENAI_API_KEY: test-key
+      ANTHROPIC_API_KEY: test-key
+      QWEN_API_KEY: test-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate TikTok token exists
+        run: |
+          test -n "$TIKTOK_ACCESS_TOKEN" || (
+            echo "::error::TIKTOK_ACCESS_TOKEN is missing"
+            exit 1
+          )
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate video.publish and video.list scopes
+        run: |
+          cd backend
+          python - <<'PY'
+          import asyncio
+          import os
+          import httpx
+
+          from app.engine.agents.workflow.multimodal_publishers import TikTokContentPublisher
+
+          async def main():
+              publisher = TikTokContentPublisher(
+                  access_token=os.environ["TIKTOK_ACCESS_TOKEN"],
+                  api_base=os.environ["TIKTOK_API_BASE"],
+              )
+              creator = await publisher.query_creator_info()
+              print("video.publish scope: OK")
+              print("creator privacy options:", creator.get("privacy_level_options"))
+
+              async with httpx.AsyncClient(timeout=30) as client:
+                  response = await client.post(
+                      os.environ["TIKTOK_API_BASE"]
+                      + "/v2/video/list/?fields=id,title,view_count",
+                      headers={
+                          "Authorization": "Bearer " + os.environ["TIKTOK_ACCESS_TOKEN"],
+                          "Content-Type": "application/json",
+                      },
+                      json={"max_count": 1},
+                  )
+                  response.raise_for_status()
+                  payload = response.json()
+                  error = payload.get("error") or {}
+                  if error.get("code") not in (None, 0, "0", "ok"):
+                      raise RuntimeError(payload)
+                  print("video.list scope: OK")
+
+          asyncio.run(main())
+          PY
+
   p1-p2-live-media:
     name: P1-P2 Live Media + MinIO + Judge
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') }}
