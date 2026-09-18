@@ -78,7 +78,7 @@ It adds a provider-neutral long-horizon orchestration layer with:
 
 The in-memory checkpoint store is intentionally for tests/local development. A production deployment should bind the same interface to PostgreSQL/Redis/object storage.
 
-A structured LLM planner and existing-platform publishing bridge are implemented in `backend/app/engine/agents/workflow/multimodal_content_adapters.py`. Concrete media providers are implemented in `multimodal_media.py`: Runway task-based video generation, ElevenLabs TTS, and FFmpeg assembly. `multimodal_persistence.py` adds PostgreSQL checkpoints, `multimodal_eval.py` adds the evaluation harness, and `api_multimodal_production.py` exposes submit/status/approve/cancel/resume controls.
+A structured LLM planner and existing-platform publishing bridge are implemented in `multimodal_content_adapters.py`. Concrete media providers live in `multimodal_media.py`: Runway task-based video generation, ElevenLabs TTS, and FFmpeg assembly with subtitles and configurable brand templates. `multimodal_persistence.py` adds PostgreSQL checkpoints; `multimodal_artifacts.py` adds MinIO/S3-compatible artifact persistence and rematerialization; `multimodal_eval.py` adds deterministic ffprobe checks plus an optional frame-sampled OpenAI multimodal judge; and `api_multimodal_production.py` exposes submit/status/approve/cancel/resume plus explicit TikTok publish/status/feedback controls. `multimodal_publishers.py` implements TikTok creator-info validation, Direct Post initialization, chunk upload, status polling, and video-metrics retrieval.
 
 ## Provider Boundaries
 
@@ -112,7 +112,7 @@ A provider should only be documented as implemented once a tested adapter exists
 
 ### Quality Evaluator
 
-The evaluator should eventually combine deterministic checks and model-based review, including:
+The evaluator combines deterministic checks and an optional model-based review layer, including:
 
 - script/storyboard consistency;
 - narration/visual alignment;
@@ -141,20 +141,20 @@ This is the core behavior required for long-running content production to be rel
 
 ## Remaining Engineering Steps
 
-The next production-hardening slice is:
+The hardening modules above are implemented and deterministic CI coverage exists. What remains is operational validation and scale hardening:
 
-1. **Credentialed live-provider validation** for Runway and ElevenLabs, including quota/rate-limit failure cases.
-2. **Durable media artifact storage** in MinIO/S3 instead of node-local files.
-3. **Subtitle and brand-template rendering** in the FFmpeg assembly stage.
-4. **Model-based multimodal judge** layered on top of deterministic artifact checks.
-5. **Real platform publishing** replacing the repository's existing simulated publishing paths.
-6. **Feedback ingestion** connecting real completion/engagement/conversion metrics back to strategy/RL components.
-7. **Distributed job execution** so long-running tasks survive API process restarts and horizontal scaling.
+1. **Credentialed live-provider validation** — manually run the guarded Runway + ElevenLabs E2E workflow and preserve generated artifacts/traces.
+2. **Live object-storage validation** — verify MinIO/S3 persistence, rematerialization, lifecycle, and retention against a real deployment.
+3. **Live TikTok validation** — configure OAuth/scopes and run an explicitly consented Direct Post through creator info -> init -> upload -> status; platform audit is required for normal public distribution.
+4. **Live multimodal-judge calibration** — enable GPT-based frame judging, build a fixed regression set, and calibrate decision thresholds against human review.
+5. **Production outcome validation** — ingest real TikTok post metrics, persist Outcome records, and verify the downstream RL update against production traces.
+6. **Distributed execution** — replace in-process asyncio active tasks with queue/worker execution so running jobs survive API process loss and horizontal scaling.
+7. **Webhook/event completion** — use platform completion callbacks where available instead of relying only on polling.
 
 ## Resume / Portfolio Positioning
 
-Once the real media adapters and end-to-end tests are complete, the project can be described as:
+For portfolio/resume use, distinguish implemented engineering from live deployment evidence. The current codebase can be described as:
 
 > **Multimodal Content Production & Growth Agent** — Built a long-horizon multimodal agent that turns content briefs into scripts, storyboards, generated media, voice, assembled short-form videos, quality-reviewed releases, and performance-feedback loops, with checkpointed execution, bounded concurrency, failure recovery, human approval, and multi-platform delivery.
 
-Until those adapters are implemented and verified, the repository should be described more conservatively as a content-generation/growth system with a recoverable multimodal production runtime under active development.
+Do not describe Runway/ElevenLabs/TikTok as production-deployed integrations until the credentialed live E2E and platform-posting runs are actually completed.
