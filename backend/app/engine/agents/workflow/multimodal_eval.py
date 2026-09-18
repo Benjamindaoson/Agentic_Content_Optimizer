@@ -49,9 +49,7 @@ class OpenAIMultimodalJudge:
         if state.final_video is None:
             raise ValueError("final video is required for multimodal judging")
 
-        video_path = MultimodalEvaluationHarness._local_path(
-            state.final_video.uri
-        )
+        video_path = MultimodalEvaluationHarness._local_path(state.final_video.uri)
         if not video_path.exists():
             raise FileNotFoundError(video_path)
 
@@ -100,8 +98,7 @@ class OpenAIMultimodalJudge:
         state: ProductionState,
     ) -> List[Path]:
         total_duration = sum(
-            max(float(shot.duration_seconds), 0.5)
-            for shot in state.storyboard
+            max(float(shot.duration_seconds), 0.5) for shot in state.storyboard
         )
         if total_duration <= 0:
             total_duration = 1.0
