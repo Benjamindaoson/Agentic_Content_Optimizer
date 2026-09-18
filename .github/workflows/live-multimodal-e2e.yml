@@ -1,0 +1,73 @@
+name: Live Multimodal E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_cost:
+        description: "I confirm this run makes paid Runway/ElevenLabs API calls"
+        required: true
+        type: boolean
+        default: false
+      run_multimodal_judge:
+        description: "Also run the OpenAI multimodal judge"
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  live-e2e:
+    if: ${{ inputs.confirm_cost }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUN_LIVE_MULTIMODAL_E2E: "1"
+      RUN_LIVE_MULTIMODAL_JUDGE: ${{ inputs.run_multimodal_judge && '1' || '0' }}
+      RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      MINIO_ACCESS_KEY: test-live-e2e
+      MINIO_SECRET_KEY: test-live-e2e
+      MULTIMODAL_ARTIFACT_DIR: backend/runtime/multimodal-live-e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install backend
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate required secrets
+        run: |
+          test -n "$RUNWAYML_API_SECRET" || (echo "RUNWAYML_API_SECRET is missing" && exit 1)
+          test -n "$ELEVENLABS_API_KEY" || (echo "ELEVENLABS_API_KEY is missing" && exit 1)
+          test -n "$ELEVENLABS_VOICE_ID" || (echo "ELEVENLABS_VOICE_ID is missing" && exit 1)
+          if [ "$RUN_LIVE_MULTIMODAL_JUDGE" = "1" ]; then
+            test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY is missing" && exit 1)
+          fi
+
+      - name: Run live multimodal E2E
+        run: |
+          cd backend
+          python scripts/testing/live_multimodal_e2e.py
+
+      - name: Upload generated artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multimodal-live-e2e
+          path: backend/runtime/multimodal-live-e2e
+          if-no-files-found: ignore
+          retention-days: 3
