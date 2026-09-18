@@ -9,6 +9,23 @@ from .multimodal_content_adapters import (
     LLMContentPlanner,
     StructuredOutputLLM,
 )
+from .multimodal_eval import EvalThresholds, MultimodalEvaluationHarness
+from .multimodal_media import (
+    ElevenLabsTTSGenerator,
+    FFmpegVideoAssembler,
+    ProductionMediaToolkit,
+    RunwayVideoGenerator,
+)
+from .multimodal_persistence import (
+    SQLAlchemyCheckpointStore,
+    deserialize_production_state,
+    serialize_production_state,
+)
+from .multimodal_service import (
+    MultimodalProductionService,
+    get_multimodal_checkpoint_store,
+    get_multimodal_production_service,
+)
 from .multimodal_content_workflow import (
     ApprovalGate,
     AssetKind,
@@ -35,6 +52,14 @@ __all__ = [
     "ContentGenerationWorkflow",
     "ContentPlanner",
     "ExistingPlatformPublisher",
+    "ElevenLabsTTSGenerator",
+    "EvalThresholds",
+    "FFmpegVideoAssembler",
+    "MultimodalEvaluationHarness",
+    "MultimodalProductionService",
+    "ProductionMediaToolkit",
+    "RunwayVideoGenerator",
+    "SQLAlchemyCheckpointStore",
     "InMemoryCheckpointStore",
     "LLMContentPlanner",
     "MediaAsset",
@@ -48,4 +73,8 @@ __all__ = [
     "QualityReport",
     "StoryboardShot",
     "StructuredOutputLLM",
+    "deserialize_production_state",
+    "serialize_production_state",
+    "get_multimodal_checkpoint_store",
+    "get_multimodal_production_service",
 ]
