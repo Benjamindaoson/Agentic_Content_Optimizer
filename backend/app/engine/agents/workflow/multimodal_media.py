@@ -380,7 +380,7 @@ class FFmpegVideoAssembler:
             map_video = "[v]"
             video_codec = "libx264"
 
-        await self._run(
+        command = [
             self.ffmpeg_bin,
             "-y",
             "-i",
@@ -395,17 +395,27 @@ class FFmpegVideoAssembler:
             "[a]",
             "-c:v",
             video_codec,
-            "-preset",
-            "veryfast",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            "-shortest",
-            "-movflags",
-            "+faststart",
-            str(final_path),
+        ]
+        if video_codec != "copy":
+            command.extend(
+                [
+                    "-preset",
+                    "veryfast",
+                    "-pix_fmt",
+                    "yuv420p",
+                ]
+            )
+        command.extend(
+            [
+                "-c:a",
+                "aac",
+                "-shortest",
+                "-movflags",
+                "+faststart",
+                str(final_path),
+            ]
         )
+        await self._run(*command)
 
         return MediaAsset(
             asset_id=f"ffmpeg-{_safe_name(job_id)}",
