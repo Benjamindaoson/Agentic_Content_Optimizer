@@ -10,7 +10,7 @@ from uuid import uuid4
 from app.core.config import get_settings
 from app.engine.llm.providers.unified_adapter import UnifiedLLMProviderAdapter
 
-from .multimodal_artifacts import MinIOArtifactStore
+from .multimodal_artifacts import ArtifactStore, MinIOArtifactStore
 from .multimodal_content_adapters import LLMContentPlanner
 from .multimodal_content_workflow import (
     MultimodalContentProductionAgent,
@@ -52,17 +52,20 @@ class MultimodalProductionService:
         platform: str,
         owner_id: str,
         job_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         resolved_job_id = job_id or f"content_{uuid4().hex[:16]}"
         existing = await self.checkpoint_store.load(resolved_job_id)
         if existing is not None:
             raise ValueError(f"job already exists: {resolved_job_id}")
 
+        initial_metadata = dict(metadata or {})
+        initial_metadata["owner_id"] = owner_id
         initial_state = ProductionState(
             job_id=resolved_job_id,
             brief=dict(brief),
             platform=platform,
-            metadata={"owner_id": owner_id},
+            metadata=initial_metadata,
         )
         await self.checkpoint_store.save(initial_state)
 
@@ -180,6 +183,8 @@ class MultimodalProductionService:
 
 _service: Optional[MultimodalProductionService] = None
 _store: Optional[SQLAlchemyCheckpointStore] = None
+_artifact_store: Optional[ArtifactStore] = None
+_artifact_store_initialized = False
 
 
 def get_multimodal_checkpoint_store() -> SQLAlchemyCheckpointStore:
@@ -187,6 +192,27 @@ def get_multimodal_checkpoint_store() -> SQLAlchemyCheckpointStore:
     if _store is None:
         _store = SQLAlchemyCheckpointStore()
     return _store
+
+
+def get_multimodal_artifact_store() -> Optional[ArtifactStore]:
+    """Return the configured durable artifact store, if enabled."""
+
+    global _artifact_store, _artifact_store_initialized
+    if _artifact_store_initialized:
+        return _artifact_store
+
+    settings = get_settings()
+    if settings.MULTIMODAL_DURABLE_STORAGE_ENABLED:
+        _artifact_store = MinIOArtifactStore(
+            endpoint=settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            bucket=settings.MULTIMODAL_ARTIFACT_BUCKET,
+            cache_dir=settings.MULTIMODAL_ARTIFACT_DIR,
+            secure=settings.MINIO_SECURE,
+        )
+    _artifact_store_initialized = True
+    return _artifact_store
 
 
 def get_multimodal_production_service() -> MultimodalProductionService:
@@ -240,16 +266,7 @@ def get_multimodal_production_service() -> MultimodalProductionService:
         output_dir=settings.MULTIMODAL_ARTIFACT_DIR,
         ffmpeg_bin=settings.FFMPEG_BIN,
     )
-    artifact_store = None
-    if settings.MULTIMODAL_DURABLE_STORAGE_ENABLED:
-        artifact_store = MinIOArtifactStore(
-            endpoint=settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            bucket=settings.MULTIMODAL_ARTIFACT_BUCKET,
-            cache_dir=settings.MULTIMODAL_ARTIFACT_DIR,
-            secure=settings.MINIO_SECURE,
-        )
+    artifact_store = get_multimodal_artifact_store()
 
     media_toolkit = ProductionMediaToolkit(
         video_generator=video_generator,
