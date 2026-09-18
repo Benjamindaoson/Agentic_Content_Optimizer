@@ -250,6 +250,7 @@ async def main() -> None:
     privacy = os.getenv("TIKTOK_LIVE_PRIVACY", "SELF_ONLY").strip()
     access_token = required("TIKTOK_ACCESS_TOKEN")
 
+    await ensure_tables()
     trace_id = await create_trace()
     state = ProductionState(
         job_id="live-tiktok-p3",
