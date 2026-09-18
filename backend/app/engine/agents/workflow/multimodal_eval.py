@@ -203,9 +203,7 @@ class MultimodalEvaluationHarness:
 
     async def evaluate(self, state: ProductionState) -> QualityReport:
         if self.artifact_store is not None and state.final_video is not None:
-            state.final_video = await self.artifact_store.materialize(
-                state.final_video
-            )
+            state.final_video = await self.artifact_store.materialize(state.final_video)
 
         issues = []
         dimensions: Dict[str, float] = {}
