@@ -78,7 +78,7 @@ It adds a provider-neutral long-horizon orchestration layer with:
 
 The in-memory checkpoint store is intentionally for tests/local development. A production deployment should bind the same interface to PostgreSQL/Redis/object storage.
 
-A structured LLM planner and existing-platform publishing bridge are implemented in `backend/app/engine/agents/workflow/multimodal_content_adapters.py`, allowing the runtime to reuse the repository's current LLM and platform layers without coupling the orchestration core to a specific vendor.
+A structured LLM planner and existing-platform publishing bridge are implemented in `backend/app/engine/agents/workflow/multimodal_content_adapters.py`. Concrete media providers are implemented in `multimodal_media.py`: Runway task-based video generation, ElevenLabs TTS, and FFmpeg assembly. `multimodal_persistence.py` adds PostgreSQL checkpoints, `multimodal_eval.py` adds the evaluation harness, and `api_multimodal_production.py` exposes submit/status/approve/cancel/resume controls.
 
 ## Provider Boundaries
 
@@ -139,17 +139,17 @@ Examples:
 
 This is the core behavior required for long-running content production to be reliable rather than merely generative.
 
-## Next Engineering Steps
+## Remaining Engineering Steps
 
-The next implementation slice should add real adapters in this order:
+The next production-hardening slice is:
 
-1. **Video/image generation adapter** with provider abstraction and idempotency keys.
-2. **TTS adapter** and audio artifact persistence.
-3. **FFmpeg assembly adapter** for deterministic composition, subtitles, and audio mixing.
-4. **Persistent checkpoint store** backed by the existing database/storage stack.
-5. **Multimodal evaluation harness** with regression cases and trace-level failure analysis.
-6. **API/job layer** for submit, status, approve, cancel, resume, and artifact retrieval.
-7. **Feedback ingestion** connecting platform metrics back to strategy/RL components.
+1. **Credentialed live-provider validation** for Runway and ElevenLabs, including quota/rate-limit failure cases.
+2. **Durable media artifact storage** in MinIO/S3 instead of node-local files.
+3. **Subtitle and brand-template rendering** in the FFmpeg assembly stage.
+4. **Model-based multimodal judge** layered on top of deterministic artifact checks.
+5. **Real platform publishing** replacing the repository's existing simulated publishing paths.
+6. **Feedback ingestion** connecting real completion/engagement/conversion metrics back to strategy/RL components.
+7. **Distributed job execution** so long-running tasks survive API process restarts and horizontal scaling.
 
 ## Resume / Portfolio Positioning
 
