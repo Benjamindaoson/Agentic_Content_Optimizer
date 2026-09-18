@@ -56,9 +56,7 @@ def serialize_production_state(state: ProductionState) -> Dict[str, Any]:
             else None
         ),
         "quality_report": (
-            asdict(state.quality_report)
-            if state.quality_report is not None
-            else None
+            asdict(state.quality_report) if state.quality_report is not None else None
         ),
         "approved": state.approved,
         "publish_result": state.publish_result,
