@@ -63,9 +63,7 @@ class FakePlatformAdapter:
         self.formatted = dict(content)
         return {
             "script": (
-                f"{content['hook']}\n"
-                f"{content['body']}\n"
-                f"{content['cta']}"
+                f"{content['hook']}\n" f"{content['body']}\n" f"{content['cta']}"
             )
         }
 
