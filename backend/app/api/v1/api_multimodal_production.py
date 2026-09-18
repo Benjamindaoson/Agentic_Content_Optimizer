@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_active_user
@@ -23,6 +26,7 @@ from app.engine.agents.workflow.multimodal_service import (
     get_multimodal_production_service,
 )
 from app.ml.rl.outcome_reward_bridge import sync_outcome_to_rl
+from app.ml.training.schemas import Outcome
 from app.models.user import User, UserRole
 
 
@@ -277,13 +281,54 @@ async def ingest_tiktok_feedback(
 
     trace_id = state.metadata.get("trace_id")
     rl_synced = False
+    outcome_id = None
     if trace_id:
+        stmt = select(Outcome).where(
+            Outcome.trace_id == str(trace_id),
+            Outcome.time_bucket == request.time_bucket,
+        )
+        outcome = (await db.execute(stmt)).scalar_one_or_none()
+        if outcome is None:
+            outcome = Outcome(
+                id=str(uuid.uuid4()),
+                trace_id=str(trace_id),
+                impressions=views,
+                clicks=0,
+                click_rate=0.0,
+                read_time_avg=0.0,
+                completion_rate=0.0,
+                likes=likes,
+                comments=comments,
+                saves=0,
+                shares=shares,
+                follows=0,
+                dms=0,
+                purchases=0,
+                engagement_score=engagement_score,
+                time_bucket=request.time_bucket,
+                measured_at=datetime.utcnow(),
+                rl_synced=0,
+            )
+            db.add(outcome)
+        else:
+            outcome.impressions = views
+            outcome.likes = likes
+            outcome.comments = comments
+            outcome.shares = shares
+            outcome.engagement_score = engagement_score
+            outcome.measured_at = datetime.utcnow()
+
+        await db.flush()
         rl_synced = await sync_outcome_to_rl(
             db=db,
             trace_id=str(trace_id),
             engagement_score=engagement_score,
             time_bucket=request.time_bucket,
         )
+        outcome.rl_synced = 1 if rl_synced else 0
+        outcome.rl_synced_at = datetime.utcnow() if rl_synced else None
+        await db.flush()
+        outcome_id = outcome.id
 
     feedback = {
         "platform": "tiktok",
@@ -292,6 +337,7 @@ async def ingest_tiktok_feedback(
         "engagement_score": engagement_score,
         "time_bucket": request.time_bucket,
         "trace_id": trace_id,
+        "outcome_id": outcome_id,
         "rl_synced": rl_synced,
     }
     state.metadata["latest_platform_feedback"] = feedback
