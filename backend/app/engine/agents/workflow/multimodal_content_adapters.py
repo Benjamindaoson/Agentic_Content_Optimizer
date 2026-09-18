@@ -65,7 +65,7 @@ class LLMContentPlanner(ContentPlanner):
                         "duration_seconds": {
                             "type": "number",
                             "minimum": 0.5,
-                            "maximum": 60,
+                            "maximum": 10,
                         },
                         "camera": {"type": "string"},
                         "transition": {"type": "string"},
