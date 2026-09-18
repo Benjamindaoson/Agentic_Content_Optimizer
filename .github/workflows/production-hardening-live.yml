@@ -47,7 +47,7 @@ jobs:
             -p 9000:9000 \
             -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
             -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
-            minio/minio:latest server /data --address :9000
+            quay.io/minio/aistor/minio:latest server /data --address :9000
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
               exit 0
@@ -210,7 +210,7 @@ jobs:
 
       - name: Start real MinIO
         run: |
-          docker run -d --name multimodal-minio             -p 9000:9000             -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY"             -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY"             minio/minio:latest server /data --address :9000
+          docker run -d --name multimodal-minio             -p 9000:9000             -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY"             -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY"             quay.io/minio/aistor/minio:latest server /data --address :9000
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
               exit 0
