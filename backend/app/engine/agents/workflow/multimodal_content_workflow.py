@@ -249,9 +249,7 @@ class MultimodalContentProductionAgent:
                 state.script = await self._call_with_retry(
                     state,
                     ProductionStage.PLAN_SCRIPT.value,
-                    lambda: self.planner.create_script(
-                        state.brief, state.platform
-                    ),
+                    lambda: self.planner.create_script(state.brief, state.platform),
                 )
                 await self.checkpoint_store.save(state)
 
@@ -405,9 +403,7 @@ class MultimodalContentProductionAgent:
                 if retry_index >= self.max_retries:
                     raise
 
-                await asyncio.sleep(
-                    self.retry_backoff_seconds * (2**retry_index)
-                )
+                await asyncio.sleep(self.retry_backoff_seconds * (2**retry_index))
 
         if last_error is not None:  # pragma: no cover
             raise last_error
