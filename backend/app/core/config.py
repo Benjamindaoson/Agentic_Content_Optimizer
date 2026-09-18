@@ -82,6 +82,14 @@ class Settings(BaseSettings):
         default="backend/runtime/multimodal",
         env="MULTIMODAL_ARTIFACT_DIR",
     )
+    MULTIMODAL_DURABLE_STORAGE_ENABLED: bool = Field(
+        default=False,
+        env="MULTIMODAL_DURABLE_STORAGE_ENABLED",
+    )
+    MULTIMODAL_ARTIFACT_BUCKET: str = Field(
+        default="videos",
+        env="MULTIMODAL_ARTIFACT_BUCKET",
+    )
     MULTIMODAL_LLM_PROVIDER: str = Field(
         default="claude",
         env="MULTIMODAL_LLM_PROVIDER",
