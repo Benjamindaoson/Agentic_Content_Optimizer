@@ -209,20 +209,21 @@ Relevant code:
 - checkpoint/resume;
 - retry and bounded concurrency;
 - quality and approval gates;
-- deterministic runtime tests.
+- deterministic runtime tests;
+- structured LLM script/storyboard planner adapter;
+- bridge from the new runtime to the existing platform publishing adapters.
 
 ### Next adapters
 
 The following should only be treated as implemented after tested adapters land in the repository:
 
-1. structured storyboard planner backed by the existing LLM layer;
-2. real text/image-to-video provider adapter;
-3. TTS provider adapter;
-4. FFmpeg-based deterministic video assembly;
-5. persistent database/object-store checkpoint implementation;
-6. multimodal evaluation harness;
-7. submit/status/approve/cancel/resume production-job API;
-8. end-to-end feedback ingestion from published short videos.
+1. real text/image-to-video provider adapter;
+2. TTS provider adapter;
+3. FFmpeg-based deterministic video assembly;
+4. persistent database/object-store checkpoint implementation;
+5. multimodal evaluation harness;
+6. submit/status/approve/cancel/resume production-job API;
+7. end-to-end feedback ingestion from published short videos.
 
 See [Multimodal Content Agent Architecture](docs/MULTIMODAL_CONTENT_AGENT.md).
 
