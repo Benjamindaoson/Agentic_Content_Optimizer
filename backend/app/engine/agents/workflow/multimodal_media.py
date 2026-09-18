@@ -443,9 +443,7 @@ class FFmpegVideoAssembler:
                 "BorderStyle=1,Outline=2,Shadow=0,"
                 "Alignment=2,MarginV=72"
             )
-            filters.append(
-                f"subtitles='{escaped_path}':force_style='{style}'"
-            )
+            filters.append(f"subtitles='{escaped_path}':force_style='{style}'")
 
         if brand_applied and self.brand_template is not None:
             brand = self.brand_template
