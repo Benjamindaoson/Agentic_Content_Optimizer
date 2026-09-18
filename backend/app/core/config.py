@@ -57,6 +57,42 @@ class Settings(BaseSettings):
     DOTS_API_BASE: str = Field(default="http://localhost:8000", env="DOTS_API_BASE")
     DOTS_API_KEY: Optional[str] = Field(default=None, env="DOTS_API_KEY")
 
+    # Multimodal content production providers
+    RUNWAYML_API_SECRET: Optional[str] = Field(default=None, env="RUNWAYML_API_SECRET")
+    RUNWAYML_API_BASE: str = Field(
+        default="https://api.dev.runwayml.com",
+        env="RUNWAYML_API_BASE",
+    )
+    RUNWAYML_API_VERSION: str = Field(default="2024-11-06", env="RUNWAYML_API_VERSION")
+    RUNWAYML_MODEL: str = Field(default="gen4.5", env="RUNWAYML_MODEL")
+    RUNWAYML_RATIO: str = Field(default="720:1280", env="RUNWAYML_RATIO")
+
+    ELEVENLABS_API_KEY: Optional[str] = Field(default=None, env="ELEVENLABS_API_KEY")
+    ELEVENLABS_API_BASE: str = Field(
+        default="https://api.elevenlabs.io",
+        env="ELEVENLABS_API_BASE",
+    )
+    ELEVENLABS_VOICE_ID: Optional[str] = Field(default=None, env="ELEVENLABS_VOICE_ID")
+    ELEVENLABS_MODEL_ID: str = Field(
+        default="eleven_multilingual_v2",
+        env="ELEVENLABS_MODEL_ID",
+    )
+
+    MULTIMODAL_ARTIFACT_DIR: str = Field(
+        default="backend/runtime/multimodal",
+        env="MULTIMODAL_ARTIFACT_DIR",
+    )
+    MULTIMODAL_LLM_PROVIDER: str = Field(
+        default="claude",
+        env="MULTIMODAL_LLM_PROVIDER",
+    )
+    MULTIMODAL_LLM_MODEL: Optional[str] = Field(
+        default=None,
+        env="MULTIMODAL_LLM_MODEL",
+    )
+    FFMPEG_BIN: str = Field(default="ffmpeg", env="FFMPEG_BIN")
+    FFPROBE_BIN: str = Field(default="ffprobe", env="FFPROBE_BIN")
+
     # Cohere Rerank（替代 LLM 做重排序，成本降 100 倍）
     COHERE_API_KEY: Optional[str] = Field(default=None, env="COHERE_API_KEY")
 
