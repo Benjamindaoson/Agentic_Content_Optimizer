@@ -22,6 +22,7 @@ from .multimodal_media import (
     ProductionMediaToolkit,
     RunwayVideoGenerator,
 )
+from .multimodal_publishers import TikTokContentPublisher
 from .multimodal_persistence import (
     SQLAlchemyCheckpointStore,
     deserialize_production_state,
@@ -29,6 +30,7 @@ from .multimodal_persistence import (
 )
 from .multimodal_service import (
     MultimodalProductionService,
+    get_multimodal_artifact_store,
     get_multimodal_checkpoint_store,
     get_multimodal_production_service,
 )
@@ -70,6 +72,7 @@ __all__ = [
     "ProductionMediaToolkit",
     "RunwayVideoGenerator",
     "SQLAlchemyCheckpointStore",
+    "TikTokContentPublisher",
     "InMemoryCheckpointStore",
     "LLMContentPlanner",
     "MediaAsset",
@@ -85,6 +88,7 @@ __all__ = [
     "StructuredOutputLLM",
     "deserialize_production_state",
     "serialize_production_state",
+    "get_multimodal_artifact_store",
     "get_multimodal_checkpoint_store",
     "get_multimodal_production_service",
 ]
