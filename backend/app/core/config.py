@@ -103,7 +103,7 @@ class Settings(BaseSettings):
         env="MULTIMODAL_JUDGE_ENABLED",
     )
     MULTIMODAL_JUDGE_MODEL: str = Field(
-        default="gpt-6-astra",
+        default="gpt-5.6-luna",
         env="MULTIMODAL_JUDGE_MODEL",
     )
     MULTIMODAL_JUDGE_SAMPLE_COUNT: int = Field(
