@@ -28,3 +28,8 @@ Re-run requested after replacing the retired Docker Hub MinIO image with the cur
 ## Retry 4
 
 Re-run requested after fixing Python module resolution for live validation scripts.
+
+
+## Retry 5
+
+Re-run requested after AIStor blocked S3 operations without a commercial license. The same MinIO/S3 client path is now validated against a real S3-compatible LocalStack service.
