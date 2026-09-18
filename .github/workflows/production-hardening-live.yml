@@ -8,16 +8,16 @@ on:
 
 jobs:
   p2-minio-recovery:
-    name: P2 Real MinIO Durability + Recovery
+    name: P2 Real S3-Compatible Durability + Recovery
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       RUN_LIVE_MINIO_RECOVERY: "1"
       MULTIMODAL_ARTIFACT_DIR: runtime/minio-recovery-validation
-      MINIO_ENDPOINT: 127.0.0.1:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ENDPOINT: 127.0.0.1:4566
+      MINIO_ACCESS_KEY: test
+      MINIO_SECRET_KEY: test
       MINIO_SECURE: "false"
       MULTIMODAL_ARTIFACT_BUCKET: videos
       DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
@@ -41,20 +41,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Start real MinIO
+      - name: Start real S3-compatible object store
         run: |
-          docker run -d --name p2-minio \
-            -p 9000:9000 \
-            -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
-            -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
-            quay.io/minio/aistor/minio:latest server /data --address :9000
-          for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
+          docker run -d --name p2-s3 \
+            -p 4566:4566 \
+            -e SERVICES=s3 \
+            -e AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY" \
+            -e AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_KEY" \
+            localstack/localstack:latest
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          docker logs p2-minio
+          docker logs p2-s3
           exit 1
 
       - name: Install backend
@@ -63,7 +64,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Execute real MinIO delete-and-recover validation
+      - name: Execute real object-store delete-and-recover validation
         run: |
           cd backend
           PYTHONPATH=. python scripts/testing/live_minio_recovery.py
@@ -72,7 +73,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: p2-real-minio-recovery-evidence
+          name: p2-real-object-storage-recovery-evidence
           path: backend/runtime/minio-recovery-validation
           if-no-files-found: warn
           retention-days: 7
@@ -172,9 +173,9 @@ jobs:
       RUNWAYML_RATIO: 720:1280
       MULTIMODAL_JUDGE_MODEL: gpt-5.6-luna
       MULTIMODAL_ARTIFACT_DIR: runtime/multimodal-live-e2e
-      MINIO_ENDPOINT: 127.0.0.1:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ENDPOINT: 127.0.0.1:4566
+      MINIO_ACCESS_KEY: test
+      MINIO_SECRET_KEY: test
       MINIO_SECURE: "false"
       MULTIMODAL_ARTIFACT_BUCKET: videos
       DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
@@ -208,16 +209,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Start real MinIO
+      - name: Start real S3-compatible object store
         run: |
-          docker run -d --name multimodal-minio             -p 9000:9000             -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY"             -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY"             quay.io/minio/aistor/minio:latest server /data --address :9000
-          for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
+          docker run -d --name multimodal-s3 \
+            -p 4566:4566 \
+            -e SERVICES=s3 \
+            -e AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY" \
+            -e AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_KEY" \
+            localstack/localstack:latest
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          docker logs multimodal-minio
+          docker logs multimodal-s3
           exit 1
 
       - name: Install backend
