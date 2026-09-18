@@ -71,9 +71,7 @@ class TikTokContentPublisher:
             raise FileNotFoundError(video_path)
 
         owns_client = self._client is None
-        client = self._client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
-        )
+        client = self._client or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         try:
             creator = await self.query_creator_info(client=client)
             privacy_options = list(creator.get("privacy_level_options") or [])
@@ -83,17 +81,11 @@ class TikTokContentPublisher:
                     f"for this creator: {self.privacy_level}"
                 )
 
-            creator_max_duration = int(
-                creator.get("max_video_post_duration_sec") or 0
-            )
+            creator_max_duration = int(creator.get("max_video_post_duration_sec") or 0)
             planned_duration = sum(
-                max(float(shot.duration_seconds), 0.5)
-                for shot in state.storyboard
+                max(float(shot.duration_seconds), 0.5) for shot in state.storyboard
             )
-            if (
-                creator_max_duration > 0
-                and planned_duration > creator_max_duration
-            ):
+            if creator_max_duration > 0 and planned_duration > creator_max_duration:
                 raise ValueError(
                     "video duration exceeds creator posting limit: "
                     f"{planned_duration:.1f}s > {creator_max_duration}s"
@@ -110,12 +102,8 @@ class TikTokContentPublisher:
                         "title": title,
                         "privacy_level": self.privacy_level,
                         "disable_duet": bool(creator.get("duet_disabled")),
-                        "disable_comment": bool(
-                            creator.get("comment_disabled")
-                        ),
-                        "disable_stitch": bool(
-                            creator.get("stitch_disabled")
-                        ),
+                        "disable_comment": bool(creator.get("comment_disabled")),
+                        "disable_stitch": bool(creator.get("stitch_disabled")),
                         "video_cover_timestamp_ms": 1000,
                         "brand_content_toggle": brand_content_toggle,
                         "brand_organic_toggle": brand_organic_toggle,
@@ -312,8 +300,7 @@ class TikTokContentPublisher:
         code = error.get("code")
         if code not in (None, 0, "0", "ok"):
             raise RuntimeError(
-                "TikTok API error "
-                f"{code}: {error.get('message') or 'unknown error'}"
+                "TikTok API error " f"{code}: {error.get('message') or 'unknown error'}"
             )
         return payload
 
