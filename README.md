@@ -217,18 +217,24 @@ Relevant code:
 - PostgreSQL-backed durable checkpoints and Alembic migration;
 - multimodal evaluation harness with ffprobe-based artifact checks;
 - authenticated task API for submit/status/approve/cancel/resume;
+- MinIO/S3-compatible durable artifact persistence and rematerialization;
+- SRT subtitle rendering plus configurable brand templates, with TikTok brand-overlay suppression;
+- optional frame-sampled OpenAI multimodal judge layered on deterministic artifact checks;
+- real TikTok Content Posting API adapter with creator-info validation, chunked FILE_UPLOAD, AIGC disclosure, and post-status polling;
+- TikTok Display API metrics ingestion persisted as Outcomes and fed into the existing RL feedback bridge;
+- guarded, manually triggered paid-provider live E2E workflow for Runway + ElevenLabs (+ optional multimodal judge);
 - bridge from the new runtime to the existing platform publishing adapters.
 
 ### Remaining production work
 
-The core runtime and concrete provider adapters are now implemented. Before claiming a fully deployed short-video agent, the remaining work is:
+The production-hardening code path is now implemented. The remaining gap is **credentialed deployment evidence**, not another architecture skeleton:
 
-1. run credentialed end-to-end tests against Runway and ElevenLabs in a controlled environment;
-2. move generated media from node-local storage to durable MinIO/S3 storage;
-3. add subtitle rendering, brand templates, and richer audio mixing to the FFmpeg assembler;
-4. add a model-based multimodal judge on top of the deterministic evaluation gate;
-5. connect approved artifacts to a real, non-simulated platform publishing integration;
-6. feed published-video metrics back into the strategy/RL loop with production data.
+1. run the manual live E2E workflow with real Runway and ElevenLabs credentials and retain the generated artifact/logs;
+2. validate MinIO against a real deployment rather than only deterministic test doubles;
+3. configure a real TikTok developer app, OAuth token/scopes, and complete a consented Direct Post test; unaudited TikTok clients remain subject to platform visibility restrictions;
+4. enable the OpenAI multimodal judge in a credentialed environment and freeze regression cases/thresholds;
+5. collect real post-publication metrics and verify the Outcome -> RL update path with production data;
+6. move active job execution from in-process asyncio tasks to a distributed worker/queue so execution itself survives API-process restarts and horizontal scaling.
 
 See [Multimodal Content Agent Architecture](docs/MULTIMODAL_CONTENT_AGENT.md).
 
@@ -258,7 +264,7 @@ The new runtime has deterministic tests for:
 Run the focused test suite from `backend/`:
 
 ```bash
-pytest tests/test_workflow/test_multimodal_content_workflow.py -q
+pytest tests/test_workflow/test_multimodal_*.py -q
 ```
 
 The repository CI also runs lint, tests, Docker build validation, and ops smoke checks.
@@ -297,4 +303,4 @@ The differentiator is not simply that the system can generate content. The goal 
 
 ## Status
 
-Active engineering refactor. The multimodal production runtime, Runway video adapter, ElevenLabs TTS adapter, FFmpeg assembler, PostgreSQL checkpoint store, evaluation harness, and task API are implemented. External provider calls are covered with deterministic mocks in CI; credentialed live-provider validation and durable object-storage integration remain before production deployment.
+Active engineering refactor. The runtime, Runway video adapter, ElevenLabs TTS adapter, FFmpeg subtitle/brand assembly, PostgreSQL checkpoints, MinIO/S3 artifact store, deterministic + optional model-based multimodal evaluation, authenticated task API, TikTok Direct Post adapter, and TikTok metrics -> RL feedback path are implemented. External provider/platform calls are mock-tested in CI. Credentialed live-provider/platform validation has not yet been executed in this repository, so the project should not yet claim a production TikTok deployment.
