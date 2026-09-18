@@ -18,3 +18,8 @@ Safety/side-effect constraints for the automated run:
 ## Retry 2
 
 Re-run requested after splitting credential-independent P2 storage validation and independent P3 credential/scope preflight.
+
+
+## Retry 3
+
+Re-run requested after replacing the retired Docker Hub MinIO image with the current official Quay AIStor image.
