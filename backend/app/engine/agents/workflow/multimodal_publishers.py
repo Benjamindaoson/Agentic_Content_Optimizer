@@ -45,7 +45,14 @@ class TikTokContentPublisher:
             "Content-Type": "application/json; charset=UTF-8",
         }
 
-    async def publish(self, state: ProductionState) -> Dict[str, Any]:
+    async def publish(
+        self,
+        state: ProductionState,
+        *,
+        caption: Optional[str] = None,
+        brand_content_toggle: bool = False,
+        brand_organic_toggle: bool = False,
+    ) -> Dict[str, Any]:
         if state.platform.lower() != "tiktok":
             raise ValueError("TikTok publisher only accepts platform=tiktok")
         if state.final_video is None:
@@ -76,7 +83,24 @@ class TikTokContentPublisher:
                     f"for this creator: {self.privacy_level}"
                 )
 
-            title = self._caption(state)
+            creator_max_duration = int(
+                creator.get("max_video_post_duration_sec") or 0
+            )
+            planned_duration = sum(
+                max(float(shot.duration_seconds), 0.5)
+                for shot in state.storyboard
+            )
+            if (
+                creator_max_duration > 0
+                and planned_duration > creator_max_duration
+            ):
+                raise ValueError(
+                    "video duration exceeds creator posting limit: "
+                    f"{planned_duration:.1f}s > {creator_max_duration}s"
+                )
+
+            title = (caption if caption is not None else self._caption(state)).strip()
+            title = title[:2200]
             source_info = self._file_source_info(video_path)
             response = await client.post(
                 f"{self.api_base}/v2/post/publish/video/init/",
@@ -85,11 +109,16 @@ class TikTokContentPublisher:
                     "post_info": {
                         "title": title,
                         "privacy_level": self.privacy_level,
-                        "disable_duet": False,
-                        "disable_comment": False,
-                        "disable_stitch": False,
+                        "disable_duet": bool(creator.get("duet_disabled")),
+                        "disable_comment": bool(
+                            creator.get("comment_disabled")
+                        ),
+                        "disable_stitch": bool(
+                            creator.get("stitch_disabled")
+                        ),
                         "video_cover_timestamp_ms": 1000,
-                        "brand_organic_toggle": False,
+                        "brand_content_toggle": brand_content_toggle,
+                        "brand_organic_toggle": brand_organic_toggle,
                         "is_aigc": True,
                     },
                     "source_info": source_info,
@@ -118,6 +147,9 @@ class TikTokContentPublisher:
                 "status_detail": status,
                 "is_aigc": True,
                 "privacy_level": self.privacy_level,
+                "brand_content_toggle": brand_content_toggle,
+                "brand_organic_toggle": brand_organic_toggle,
+                "caption": title,
             }
         finally:
             if owns_client:
