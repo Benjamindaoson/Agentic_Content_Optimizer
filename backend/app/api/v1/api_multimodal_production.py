@@ -41,6 +41,9 @@ class SubmitProductionJobRequest(BaseModel):
 
 class TikTokPublishRequest(BaseModel):
     privacy_level: Optional[str] = Field(default=None, max_length=64)
+    caption: Optional[str] = Field(default=None, max_length=2200)
+    brand_content_toggle: bool = False
+    brand_organic_toggle: bool = False
 
 
 class TikTokFeedbackRequest(BaseModel):
@@ -198,7 +201,12 @@ async def publish_tiktok(
 
     publisher = _get_tiktok_publisher(request.privacy_level)
     try:
-        result = await publisher.publish(state)
+        result = await publisher.publish(
+            state,
+            caption=request.caption,
+            brand_content_toggle=request.brand_content_toggle,
+            brand_organic_toggle=request.brand_organic_toggle,
+        )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (httpx.HTTPError, RuntimeError) as exc:
