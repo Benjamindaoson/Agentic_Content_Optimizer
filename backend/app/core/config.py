@@ -113,6 +113,24 @@ class Settings(BaseSettings):
     FFMPEG_BIN: str = Field(default="ffmpeg", env="FFMPEG_BIN")
     FFPROBE_BIN: str = Field(default="ffprobe", env="FFPROBE_BIN")
 
+    # TikTok Content Posting / Display API
+    TIKTOK_CONTENT_POSTING_ENABLED: bool = Field(
+        default=False,
+        env="TIKTOK_CONTENT_POSTING_ENABLED",
+    )
+    TIKTOK_ACCESS_TOKEN: Optional[str] = Field(
+        default=None,
+        env="TIKTOK_ACCESS_TOKEN",
+    )
+    TIKTOK_API_BASE: str = Field(
+        default="https://open.tiktokapis.com",
+        env="TIKTOK_API_BASE",
+    )
+    TIKTOK_PRIVACY_LEVEL: str = Field(
+        default="SELF_ONLY",
+        env="TIKTOK_PRIVACY_LEVEL",
+    )
+
     # Cohere Rerank（替代 LLM 做重排序，成本降 100 倍）
     COHERE_API_KEY: Optional[str] = Field(default=None, env="COHERE_API_KEY")
 
