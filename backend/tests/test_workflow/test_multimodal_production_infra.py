@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import NullPool
 
 from app.engine.agents.workflow.multimodal_content_workflow import (
     AssetKind,
@@ -30,6 +36,7 @@ from app.engine.agents.workflow.multimodal_persistence import (
     deserialize_production_state,
     serialize_production_state,
 )
+from app.models.multimodal_production import MultimodalProductionJob
 
 
 def test_production_state_round_trip_serialization():
@@ -85,37 +92,61 @@ def test_production_state_round_trip_serialization():
 
 
 @pytest.mark.asyncio
-async def test_sqlalchemy_checkpoint_store_persists_and_updates(test_engine):
+async def test_sqlalchemy_checkpoint_store_persists_and_updates():
+    database_url = os.environ["DATABASE_URL"].replace(
+        "postgresql://",
+        "postgresql+asyncpg://",
+    )
+    engine = create_async_engine(database_url, poolclass=NullPool)
     session_factory = async_sessionmaker(
-        test_engine,
+        engine,
         class_=AsyncSession,
         expire_on_commit=False,
     )
     store = SQLAlchemyCheckpointStore(session_factory=session_factory)
-    state = ProductionState(
-        job_id="db-job-1",
-        brief={"topic": "数据库恢复"},
-        platform="douyin",
-        metadata={"owner_id": "7"},
-    )
 
-    await store.save(state)
-    restored = await store.load("db-job-1")
+    async with engine.begin() as connection:
+        await connection.run_sync(
+            lambda sync_connection: MultimodalProductionJob.__table__.create(
+                bind=sync_connection,
+                checkfirst=True,
+            )
+        )
 
-    assert restored is not None
-    assert restored.brief["topic"] == "数据库恢复"
-    assert restored.metadata["owner_id"] == "7"
-    assert restored.status == ProductionStatus.PENDING
+    try:
+        state = ProductionState(
+            job_id="db-job-1",
+            brief={"topic": "数据库恢复"},
+            platform="douyin",
+            metadata={"owner_id": "7"},
+        )
 
-    restored.status = ProductionStatus.WAITING_APPROVAL
-    restored.stage = ProductionStage.APPROVAL
-    restored.approved = False
-    await store.save(restored)
+        await store.save(state)
+        restored = await store.load("db-job-1")
 
-    updated = await store.load("db-job-1")
-    assert updated is not None
-    assert updated.status == ProductionStatus.WAITING_APPROVAL
-    assert updated.stage == ProductionStage.APPROVAL
+        assert restored is not None
+        assert restored.brief["topic"] == "数据库恢复"
+        assert restored.metadata["owner_id"] == "7"
+        assert restored.status == ProductionStatus.PENDING
+
+        restored.status = ProductionStatus.WAITING_APPROVAL
+        restored.stage = ProductionStage.APPROVAL
+        restored.approved = False
+        await store.save(restored)
+
+        updated = await store.load("db-job-1")
+        assert updated is not None
+        assert updated.status == ProductionStatus.WAITING_APPROVAL
+        assert updated.stage == ProductionStage.APPROVAL
+    finally:
+        async with engine.begin() as connection:
+            await connection.run_sync(
+                lambda sync_connection: MultimodalProductionJob.__table__.drop(
+                    bind=sync_connection,
+                    checkfirst=True,
+                )
+            )
+        await engine.dispose()
 
 
 @pytest.mark.asyncio
