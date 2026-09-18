@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.engine.agents.workflow.multimodal_content_workflow import (
     AssetKind,
@@ -25,6 +26,7 @@ from app.engine.agents.workflow.multimodal_media import (
     RunwayVideoGenerator,
 )
 from app.engine.agents.workflow.multimodal_persistence import (
+    SQLAlchemyCheckpointStore,
     deserialize_production_state,
     serialize_production_state,
 )
@@ -80,6 +82,40 @@ def test_production_state_round_trip_serialization():
     assert restored.final_video.kind == AssetKind.FINAL_VIDEO
     assert restored.quality_report.passed is True
     assert restored.metadata["owner_id"] == "42"
+
+
+@pytest.mark.asyncio
+async def test_sqlalchemy_checkpoint_store_persists_and_updates(test_engine):
+    session_factory = async_sessionmaker(
+        test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    store = SQLAlchemyCheckpointStore(session_factory=session_factory)
+    state = ProductionState(
+        job_id="db-job-1",
+        brief={"topic": "数据库恢复"},
+        platform="douyin",
+        metadata={"owner_id": "7"},
+    )
+
+    await store.save(state)
+    restored = await store.load("db-job-1")
+
+    assert restored is not None
+    assert restored.brief["topic"] == "数据库恢复"
+    assert restored.metadata["owner_id"] == "7"
+    assert restored.status == ProductionStatus.PENDING
+
+    restored.status = ProductionStatus.WAITING_APPROVAL
+    restored.stage = ProductionStage.APPROVAL
+    restored.approved = False
+    await store.save(restored)
+
+    updated = await store.load("db-job-1")
+    assert updated is not None
+    assert updated.status == ProductionStatus.WAITING_APPROVAL
+    assert updated.stage == ProductionStage.APPROVAL
 
 
 @pytest.mark.asyncio
