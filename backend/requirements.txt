@@ -40,7 +40,7 @@ minio==7.2.3
 python-dotenv==1.0.0
 httpx==0.26.0
 aiofiles==23.2.1
-orjson==3.9.12
+orjson>=3.9.14,<4.0.0
 tenacity==8.2.3
 requests>=2.32.5,<3.0.0
 tiktoken>=0.8.0
