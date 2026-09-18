@@ -23,6 +23,7 @@ class ProductionStatus(str, Enum):
     NEEDS_REVISION = "needs_revision"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class ProductionStage(str, Enum):
@@ -220,6 +221,7 @@ class MultimodalContentProductionAgent:
         platform: str = "douyin",
         job_id: Optional[str] = None,
         resume: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ProductionState:
         """Run or resume a production job."""
 
@@ -235,9 +237,13 @@ class MultimodalContentProductionAgent:
                 job_id=job_id or f"content_{uuid4().hex[:16]}",
                 brief=dict(brief),
                 platform=platform,
+                metadata=dict(metadata or {}),
             )
 
-        if state.status == ProductionStatus.COMPLETED:
+        if state.status in {
+            ProductionStatus.COMPLETED,
+            ProductionStatus.CANCELLED,
+        }:
             return state
 
         state.status = ProductionStatus.RUNNING
@@ -339,10 +345,27 @@ class MultimodalContentProductionAgent:
             state.status = ProductionStatus.COMPLETED
             await self.checkpoint_store.save(state)
             return state
+        except asyncio.CancelledError:
+            state.status = ProductionStatus.CANCELLED
+            await self.checkpoint_store.save(state)
+            raise
         except Exception:
             state.status = ProductionStatus.FAILED
             await self.checkpoint_store.save(state)
             raise
+
+    async def cancel(self, job_id: str) -> ProductionState:
+        """Persist cancellation for a production job."""
+
+        state = await self.checkpoint_store.load(job_id)
+        if state is None:
+            raise KeyError(f"unknown production job: {job_id}")
+        if state.status == ProductionStatus.COMPLETED:
+            raise ValueError("completed jobs cannot be cancelled")
+
+        state.status = ProductionStatus.CANCELLED
+        await self.checkpoint_store.save(state)
+        return state
 
     async def approve(self, job_id: str) -> ProductionState:
         """Persist human approval so the job can resume without replaying work."""
