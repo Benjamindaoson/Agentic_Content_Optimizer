@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
+
+from openai import AsyncOpenAI
 
 from .multimodal_content_workflow import ProductionState, QualityReport
 
@@ -14,6 +18,160 @@ from .multimodal_content_workflow import ProductionState, QualityReport
 class MultimodalJudge(Protocol):
     async def evaluate(self, state: ProductionState) -> Dict[str, Any]:
         """Return optional model-based review signals."""
+
+
+class OpenAIMultimodalJudge:
+    """Vision-language judge over sampled frames from the assembled video.
+
+    The judge is advisory: deterministic artifact integrity checks remain the
+    hard gate in MultimodalEvaluationHarness.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str = "gpt-6-astra",
+        ffmpeg_bin: str = "ffmpeg",
+        sample_count: int = 4,
+        client: Optional[Any] = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError("OpenAI API key is required for multimodal judging")
+        if sample_count < 1:
+            raise ValueError("sample_count must be >= 1")
+        self.model = model
+        self.ffmpeg_bin = ffmpeg_bin
+        self.sample_count = sample_count
+        self.client = client or AsyncOpenAI(api_key=api_key)
+
+    async def evaluate(self, state: ProductionState) -> Dict[str, Any]:
+        if state.final_video is None:
+            raise ValueError("final video is required for multimodal judging")
+
+        video_path = MultimodalEvaluationHarness._local_path(
+            state.final_video.uri
+        )
+        if not video_path.exists():
+            raise FileNotFoundError(video_path)
+
+        with tempfile.TemporaryDirectory(prefix="multimodal-judge-") as tmp:
+            frame_paths = await self._sample_frames(
+                video_path,
+                Path(tmp),
+                state,
+            )
+            content: List[Dict[str, Any]] = [
+                {
+                    "type": "input_text",
+                    "text": self._build_prompt(state),
+                }
+            ]
+            for frame_path in frame_paths:
+                encoded = base64.b64encode(frame_path.read_bytes()).decode("ascii")
+                content.append(
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{encoded}",
+                        "detail": "auto",
+                    }
+                )
+
+            response = await self.client.responses.create(
+                model=self.model,
+                input=[{"role": "user", "content": content}],
+            )
+            raw = str(response.output_text or "").strip()
+            result = self._parse_json(raw)
+            score = max(0.0, min(1.0, float(result.get("score", 0.0))))
+            return {
+                "score": score,
+                "issues": list(result.get("issues") or []),
+                "dimensions": dict(result.get("dimensions") or {}),
+                "reasoning": str(result.get("reasoning") or ""),
+                "sampled_frames": len(frame_paths),
+                "model": self.model,
+            }
+
+    async def _sample_frames(
+        self,
+        video_path: Path,
+        output_dir: Path,
+        state: ProductionState,
+    ) -> List[Path]:
+        total_duration = sum(
+            max(float(shot.duration_seconds), 0.5)
+            for shot in state.storyboard
+        )
+        if total_duration <= 0:
+            total_duration = 1.0
+
+        timestamps = [
+            total_duration * (index + 1) / (self.sample_count + 1)
+            for index in range(self.sample_count)
+        ]
+        paths: List[Path] = []
+        for index, timestamp in enumerate(timestamps):
+            output = output_dir / f"frame_{index:02d}.jpg"
+            process = await asyncio.create_subprocess_exec(
+                self.ffmpeg_bin,
+                "-y",
+                "-ss",
+                f"{timestamp:.3f}",
+                "-i",
+                str(video_path),
+                "-frames:v",
+                "1",
+                "-q:v",
+                "3",
+                str(output),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await process.communicate()
+            if process.returncode != 0 or not output.exists():
+                raise RuntimeError(
+                    "failed to sample video frame: "
+                    + stderr.decode("utf-8", errors="replace")[-2000:]
+                )
+            paths.append(output)
+        return paths
+
+    @staticmethod
+    def _build_prompt(state: ProductionState) -> str:
+        storyboard = [
+            {
+                "shot_id": shot.shot_id,
+                "narration": shot.narration,
+                "visual_prompt": shot.visual_prompt,
+                "duration_seconds": shot.duration_seconds,
+            }
+            for shot in state.storyboard
+        ]
+        return (
+            "Evaluate the sampled frames from a generated short-form video "
+            "against the intended script and storyboard. Judge only visible "
+            "evidence and the supplied plan. Assess visual-story consistency, "
+            "shot relevance, obvious visual defects, brand/factual mismatch, "
+            "and overall publish readiness. Return JSON only with: "
+            '{"score": 0.0-1.0, "issues": ["..."], '
+            '"dimensions": {"visual_story_alignment": 0.0-1.0, '
+            '"visual_quality": 0.0-1.0, "publish_readiness": 0.0-1.0}, '
+            '"reasoning": "brief explanation"}. '
+            f"Script: {json.dumps(state.script, ensure_ascii=False)}. "
+            f"Storyboard: {json.dumps(storyboard, ensure_ascii=False)}."
+        )
+
+    @staticmethod
+    def _parse_json(raw: str) -> Dict[str, Any]:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            start = raw.find("{")
+            end = raw.rfind("}")
+            if start >= 0 and end > start:
+                return json.loads(raw[start : end + 1])
+            raise
 
 
 @dataclass
