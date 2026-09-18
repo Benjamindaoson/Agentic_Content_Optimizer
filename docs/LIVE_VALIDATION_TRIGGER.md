@@ -23,3 +23,8 @@ Re-run requested after splitting credential-independent P2 storage validation an
 ## Retry 3
 
 Re-run requested after replacing the retired Docker Hub MinIO image with the current official Quay AIStor image.
+
+
+## Retry 4
+
+Re-run requested after fixing Python module resolution for live validation scripts.
