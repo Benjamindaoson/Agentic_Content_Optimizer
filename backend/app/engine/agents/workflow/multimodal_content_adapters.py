@@ -168,9 +168,7 @@ class LLMContentPlanner(ContentPlanner):
             shot_id = str(raw.get("shot_id") or f"shot-{index}")
             duration = max(float(raw["duration_seconds"]), 0.5)
             metadata = {
-                key: raw[key]
-                for key in ("camera", "transition")
-                if raw.get(key)
+                key: raw[key] for key in ("camera", "transition") if raw.get(key)
             }
             storyboard.append(
                 StoryboardShot(
