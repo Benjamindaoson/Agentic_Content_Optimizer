@@ -78,6 +78,8 @@ It adds a provider-neutral long-horizon orchestration layer with:
 
 The in-memory checkpoint store is intentionally for tests/local development. A production deployment should bind the same interface to PostgreSQL/Redis/object storage.
 
+A structured LLM planner and existing-platform publishing bridge are implemented in `backend/app/engine/agents/workflow/multimodal_content_adapters.py`, allowing the runtime to reuse the repository's current LLM and platform layers without coupling the orchestration core to a specific vendor.
+
 ## Provider Boundaries
 
 The orchestration layer does not hard-code a model vendor.
@@ -141,14 +143,13 @@ This is the core behavior required for long-running content production to be rel
 
 The next implementation slice should add real adapters in this order:
 
-1. **Storyboard planner adapter** using the existing LLM layer with structured output.
-2. **Video/image generation adapter** with provider abstraction and idempotency keys.
-3. **TTS adapter** and audio artifact persistence.
-4. **FFmpeg assembly adapter** for deterministic composition, subtitles, and audio mixing.
-5. **Persistent checkpoint store** backed by the existing database/storage stack.
-6. **Multimodal evaluation harness** with regression cases and trace-level failure analysis.
-7. **API/job layer** for submit, status, approve, cancel, resume, and artifact retrieval.
-8. **Feedback ingestion** connecting platform metrics back to strategy/RL components.
+1. **Video/image generation adapter** with provider abstraction and idempotency keys.
+2. **TTS adapter** and audio artifact persistence.
+3. **FFmpeg assembly adapter** for deterministic composition, subtitles, and audio mixing.
+4. **Persistent checkpoint store** backed by the existing database/storage stack.
+5. **Multimodal evaluation harness** with regression cases and trace-level failure analysis.
+6. **API/job layer** for submit, status, approve, cancel, resume, and artifact retrieval.
+7. **Feedback ingestion** connecting platform metrics back to strategy/RL components.
 
 ## Resume / Portfolio Positioning
 
