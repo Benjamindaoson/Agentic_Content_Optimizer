@@ -290,9 +290,7 @@ def get_multimodal_production_service() -> MultimodalProductionService:
     judge = None
     if settings.MULTIMODAL_JUDGE_ENABLED:
         if not settings.OPENAI_API_KEY:
-            raise RuntimeError(
-                "MULTIMODAL_JUDGE_ENABLED requires OPENAI_API_KEY"
-            )
+            raise RuntimeError("MULTIMODAL_JUDGE_ENABLED requires OPENAI_API_KEY")
         judge = OpenAIMultimodalJudge(
             api_key=settings.OPENAI_API_KEY,
             model=settings.MULTIMODAL_JUDGE_MODEL,
