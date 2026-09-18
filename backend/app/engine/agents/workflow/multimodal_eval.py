@@ -32,7 +32,7 @@ class OpenAIMultimodalJudge:
         self,
         *,
         api_key: str,
-        model: str = "gpt-6-astra",
+        model: str = "gpt-5.6-luna",
         ffmpeg_bin: str = "ffmpeg",
         sample_count: int = 4,
         client: Optional[Any] = None,
