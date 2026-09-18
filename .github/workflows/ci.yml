@@ -47,7 +47,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U growth_user"
+          --health-cmd "pg_isready -U growth_user -d test_growth_flywheel"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -71,6 +71,8 @@ jobs:
       OPENAI_API_KEY: test-key
       QWEN_API_KEY: test-key
       LANGCHAIN_API_KEY: test-key
+      MINIO_ACCESS_KEY: test-minio-access
+      MINIO_SECRET_KEY: test-minio-secret
 
     steps:
       - uses: actions/checkout@v4
