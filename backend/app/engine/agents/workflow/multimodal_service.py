@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
@@ -22,6 +23,9 @@ from .multimodal_media import (
     RunwayVideoGenerator,
 )
 from .multimodal_persistence import SQLAlchemyCheckpointStore
+
+
+logger = logging.getLogger(__name__)
 
 
 class MultimodalProductionService:
@@ -50,13 +54,26 @@ class MultimodalProductionService:
         if existing is not None:
             raise ValueError(f"job already exists: {resolved_job_id}")
 
-        await self._start(
-            resolved_job_id,
-            brief=brief,
+        initial_state = ProductionState(
+            job_id=resolved_job_id,
+            brief=dict(brief),
             platform=platform,
-            owner_id=owner_id,
-            resume=False,
+            metadata={"owner_id": owner_id},
         )
+        await self.checkpoint_store.save(initial_state)
+
+        try:
+            await self._start(
+                resolved_job_id,
+                brief=None,
+                platform=platform,
+                owner_id=owner_id,
+                resume=True,
+            )
+        except Exception:
+            # The accepted job checkpoint intentionally remains queryable even
+            # when scheduling fails; callers can inspect or resume it.
+            raise
         return resolved_job_id
 
     async def resume(self, job_id: str) -> None:
@@ -140,9 +157,21 @@ class MultimodalProductionService:
         )
 
     async def _remove_task(self, job_id: str, task: asyncio.Task) -> None:
-        async with self._lock:
-            if self._tasks.get(job_id) is task:
-                self._tasks.pop(job_id, None)
+        try:
+            if task.cancelled():
+                logger.info("multimodal production job cancelled: %s", job_id)
+            else:
+                error = task.exception()
+                if error is not None:
+                    logger.error(
+                        "multimodal production job failed: %s: %s",
+                        job_id,
+                        error,
+                    )
+        finally:
+            async with self._lock:
+                if self._tasks.get(job_id) is task:
+                    self._tasks.pop(job_id, None)
 
 
 _service: Optional[MultimodalProductionService] = None
