@@ -4,6 +4,11 @@ from .langgraph_workflow import (
     ContentGenerationState,
     ContentGenerationWorkflow,
 )
+from .multimodal_content_adapters import (
+    ExistingPlatformPublisher,
+    LLMContentPlanner,
+    StructuredOutputLLM,
+)
 from .multimodal_content_workflow import (
     ApprovalGate,
     AssetKind,
@@ -29,7 +34,9 @@ __all__ = [
     "ContentGenerationState",
     "ContentGenerationWorkflow",
     "ContentPlanner",
+    "ExistingPlatformPublisher",
     "InMemoryCheckpointStore",
+    "LLMContentPlanner",
     "MediaAsset",
     "MediaToolkit",
     "MultimodalContentProductionAgent",
@@ -40,4 +47,5 @@ __all__ = [
     "QualityEvaluator",
     "QualityReport",
     "StoryboardShot",
+    "StructuredOutputLLM",
 ]
