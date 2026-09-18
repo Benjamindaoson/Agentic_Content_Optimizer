@@ -33,3 +33,8 @@ Re-run requested after fixing Python module resolution for live validation scrip
 ## Retry 5
 
 Re-run requested after AIStor blocked S3 operations without a commercial license. The same MinIO/S3 client path is now validated against a real S3-compatible LocalStack service.
+
+
+## Retry 6
+
+Re-run requested after LocalStack 2026 required a paid auth token. P2 now uses the open-source Moto S3 server to exercise the same networked S3-compatible persistence and recovery path.
