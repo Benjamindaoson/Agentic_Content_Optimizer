@@ -125,8 +125,7 @@ async def wait_for_publish(
         status = str(last.get("status") or "")
         if status == "FAILED":
             raise RuntimeError(
-                "TikTok publish failed: "
-                + str(last.get("fail_reason") or last)
+                "TikTok publish failed: " + str(last.get("fail_reason") or last)
             )
         if status == "PUBLISH_COMPLETE":
             return last
@@ -305,8 +304,7 @@ async def main() -> None:
     status_result = await wait_for_publish(publisher, publish_id)
 
     post_ids = [
-        str(item)
-        for item in status_result.get("publicaly_available_post_id") or []
+        str(item) for item in status_result.get("publicaly_available_post_id") or []
     ]
     if not post_ids:
         report = {
