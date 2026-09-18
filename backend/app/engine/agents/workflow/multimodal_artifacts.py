@@ -167,6 +167,5 @@ class MinIOArtifactStore:
     @staticmethod
     def _safe(value: str) -> str:
         return "".join(
-            char if char.isalnum() or char in "-_." else "_"
-            for char in value
+            char if char.isalnum() or char in "-_." else "_" for char in value
         )
