@@ -10,6 +10,7 @@ from uuid import uuid4
 from app.core.config import get_settings
 from app.engine.llm.providers.unified_adapter import UnifiedLLMProviderAdapter
 
+from .multimodal_artifacts import MinIOArtifactStore
 from .multimodal_content_adapters import LLMContentPlanner
 from .multimodal_content_workflow import (
     MultimodalContentProductionAgent,
@@ -236,10 +237,22 @@ def get_multimodal_production_service() -> MultimodalProductionService:
         output_dir=settings.MULTIMODAL_ARTIFACT_DIR,
         ffmpeg_bin=settings.FFMPEG_BIN,
     )
+    artifact_store = None
+    if settings.MULTIMODAL_DURABLE_STORAGE_ENABLED:
+        artifact_store = MinIOArtifactStore(
+            endpoint=settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            bucket=settings.MULTIMODAL_ARTIFACT_BUCKET,
+            cache_dir=settings.MULTIMODAL_ARTIFACT_DIR,
+            secure=settings.MINIO_SECURE,
+        )
+
     media_toolkit = ProductionMediaToolkit(
         video_generator=video_generator,
         tts_generator=tts_generator,
         assembler=assembler,
+        artifact_store=artifact_store,
     )
 
     checkpoint_store = get_multimodal_checkpoint_store()
