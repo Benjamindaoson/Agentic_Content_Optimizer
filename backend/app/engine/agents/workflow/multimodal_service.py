@@ -16,7 +16,10 @@ from .multimodal_content_workflow import (
     MultimodalContentProductionAgent,
     ProductionState,
 )
-from .multimodal_eval import MultimodalEvaluationHarness
+from .multimodal_eval import (
+    MultimodalEvaluationHarness,
+    OpenAIMultimodalJudge,
+)
 from .multimodal_media import (
     ElevenLabsTTSGenerator,
     FFmpegVideoAssembler,
@@ -256,8 +259,22 @@ def get_multimodal_production_service() -> MultimodalProductionService:
     )
 
     checkpoint_store = get_multimodal_checkpoint_store()
+    judge = None
+    if settings.MULTIMODAL_JUDGE_ENABLED:
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                "MULTIMODAL_JUDGE_ENABLED requires OPENAI_API_KEY"
+            )
+        judge = OpenAIMultimodalJudge(
+            api_key=settings.OPENAI_API_KEY,
+            model=settings.MULTIMODAL_JUDGE_MODEL,
+            ffmpeg_bin=settings.FFMPEG_BIN,
+            sample_count=settings.MULTIMODAL_JUDGE_SAMPLE_COUNT,
+        )
+
     evaluator = MultimodalEvaluationHarness(
         ffprobe_bin=settings.FFPROBE_BIN,
+        judge=judge,
     )
     agent = MultimodalContentProductionAgent(
         planner=planner,
