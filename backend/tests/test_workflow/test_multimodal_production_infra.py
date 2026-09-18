@@ -524,6 +524,71 @@ class ProbeHarness(MultimodalEvaluationHarness):
         }
 
 
+class MaterializingStore:
+    def __init__(self, local_path: Path):
+        self.local_path = local_path
+        self.calls = 0
+
+    async def materialize(self, asset):
+        self.calls += 1
+        return MediaAsset(
+            asset_id=asset.asset_id,
+            kind=asset.kind,
+            uri=str(self.local_path),
+            provider=asset.provider,
+            metadata=dict(asset.metadata),
+        )
+
+
+@pytest.mark.asyncio
+async def test_multimodal_eval_rematerializes_durable_final_video(tmp_path):
+    local_video = tmp_path / "restored.mp4"
+    local_video.write_bytes(b"video")
+    store = MaterializingStore(local_video)
+    harness = ProbeHarness(artifact_store=store)
+
+    state = ProductionState(
+        job_id="durable-eval",
+        brief={"topic": "恢复"},
+        platform="douyin",
+        script={
+            "title": "标题",
+            "hook": "开场",
+            "body": "正文",
+            "cta": "行动",
+        },
+        storyboard=[
+            StoryboardShot(
+                shot_id="s1",
+                narration="旁白",
+                visual_prompt="视觉",
+                duration_seconds=5,
+            )
+        ],
+        visual_assets={
+            "s1": MediaAsset(
+                asset_id="visual",
+                kind=AssetKind.VIDEO,
+                uri="s3://videos/job/s1.mp4",
+                provider="runway",
+            )
+        },
+        final_video=MediaAsset(
+            asset_id="final",
+            kind=AssetKind.FINAL_VIDEO,
+            uri="s3://videos/job/final.mp4",
+            provider="ffmpeg",
+            metadata={"durable_uri": "s3://videos/job/final.mp4"},
+        ),
+    )
+
+    report = await harness.evaluate(state)
+
+    assert store.calls == 1
+    assert state.final_video.uri == str(local_video)
+    assert report.passed is True
+
+
 @pytest.mark.asyncio
 async def test_multimodal_eval_requires_complete_artifacts(tmp_path):
     final_video = tmp_path / "final.mp4"
