@@ -134,7 +134,7 @@ async def main() -> None:
     if os.getenv("RUN_LIVE_MULTIMODAL_JUDGE") == "1":
         judge = OpenAIMultimodalJudge(
             api_key=required("OPENAI_API_KEY"),
-            model=os.getenv("MULTIMODAL_JUDGE_MODEL", "gpt-6-astra"),
+            model=os.getenv("MULTIMODAL_JUDGE_MODEL", "gpt-5.6-luna"),
             ffmpeg_bin=os.getenv("FFMPEG_BIN", "ffmpeg"),
             sample_count=2,
         )
