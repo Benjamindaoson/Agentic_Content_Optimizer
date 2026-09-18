@@ -263,20 +263,26 @@ class TikTokContentPublisher:
 
         max_chunk = 64 * 1024 * 1024
         min_chunk = 5 * 1024 * 1024
+        max_final_chunk = 128 * 1024 * 1024
+
         if size <= max_chunk:
             chunk_size = size
             total_chunk_count = 1
+        elif size < 2 * max_chunk:
+            # TikTok requires files >64 MB to use multiple chunks, while
+            # total_chunk_count is floor(video_size / chunk_size). Halving
+            # this range guarantees exactly two valid chunks.
+            chunk_size = size // 2
+            total_chunk_count = 2
         else:
             chunk_size = max_chunk
-            total_chunk_count = max(1, math.floor(size / chunk_size))
-            final_size = size - chunk_size * (total_chunk_count - 1)
-            if final_size > 128 * 1024 * 1024:
-                total_chunk_count += 1
-                final_size = size - chunk_size * (total_chunk_count - 1)
-            if total_chunk_count > 1 and chunk_size < min_chunk:
-                raise ValueError("TikTok chunk size would be below 5 MB")
-            if final_size > 128 * 1024 * 1024:
-                raise ValueError("TikTok final upload chunk would exceed 128 MB")
+            total_chunk_count = math.floor(size / chunk_size)
+
+        final_size = size - chunk_size * (total_chunk_count - 1)
+        if total_chunk_count > 1 and chunk_size < min_chunk:
+            raise ValueError("TikTok chunk size would be below 5 MB")
+        if final_size > max_final_chunk:
+            raise ValueError("TikTok final upload chunk would exceed 128 MB")
 
         return {
             "source": "FILE_UPLOAD",
