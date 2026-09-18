@@ -171,7 +171,9 @@ async def resume_job(
     return {"job_id": job_id, "status": "resuming"}
 
 
-def _get_tiktok_publisher(privacy_level: Optional[str] = None) -> TikTokContentPublisher:
+def _get_tiktok_publisher(
+    privacy_level: Optional[str] = None,
+) -> TikTokContentPublisher:
     settings = get_settings()
     if not settings.TIKTOK_CONTENT_POSTING_ENABLED:
         raise HTTPException(
@@ -275,9 +277,7 @@ async def ingest_tiktok_feedback(
     likes = int(metrics.get("like_count") or 0)
     comments = int(metrics.get("comment_count") or 0)
     shares = int(metrics.get("share_count") or 0)
-    engagement_score = (
-        likes * 1.0 + comments * 2.0 + shares * 2.0
-    ) / views * 1000.0
+    engagement_score = (likes * 1.0 + comments * 2.0 + shares * 2.0) / views * 1000.0
 
     trace_id = state.metadata.get("trace_id")
     rl_synced = False
