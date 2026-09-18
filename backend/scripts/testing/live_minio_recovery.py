@@ -125,9 +125,7 @@ async def main() -> None:
         raise RuntimeError("MinIO recovered artifact SHA256 mismatch")
 
     probe = await ffprobe(recovered_path)
-    stream_types = {
-        stream.get("codec_type") for stream in probe.get("streams") or []
-    }
+    stream_types = {stream.get("codec_type") for stream in probe.get("streams") or []}
     if not {"video", "audio"}.issubset(stream_types):
         raise RuntimeError(
             f"recovered artifact missing audio/video stream: {stream_types}"
