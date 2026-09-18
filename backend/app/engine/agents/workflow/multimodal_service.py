@@ -301,6 +301,7 @@ def get_multimodal_production_service() -> MultimodalProductionService:
     evaluator = MultimodalEvaluationHarness(
         ffprobe_bin=settings.FFPROBE_BIN,
         judge=judge,
+        artifact_store=artifact_store,
     )
     agent = MultimodalContentProductionAgent(
         planner=planner,
