@@ -98,9 +98,7 @@ class RunwayVideoGenerator:
             payload["promptImage"] = prompt_image
 
         owns_client = self._client is None
-        client = self._client or httpx.AsyncClient(
-            timeout=self.request_timeout_seconds
-        )
+        client = self._client or httpx.AsyncClient(timeout=self.request_timeout_seconds)
         try:
             response = await client.post(
                 f"{self.api_base}/v1/image_to_video",
@@ -113,9 +111,7 @@ class RunwayVideoGenerator:
             task = await self._wait_for_task(client, task_id)
             outputs = task.get("output") or []
             if not outputs:
-                raise RuntimeError(
-                    f"Runway task {task_id} succeeded without output"
-                )
+                raise RuntimeError(f"Runway task {task_id} succeeded without output")
 
             output_url = str(outputs[0])
             video_response = await client.get(
@@ -209,10 +205,7 @@ class ElevenLabsTTSGenerator:
         context: Dict[str, Any],
     ) -> MediaAsset:
         narration = str(
-            script.get("narration")
-            or script.get("body")
-            or script.get("title")
-            or ""
+            script.get("narration") or script.get("body") or script.get("title") or ""
         ).strip()
         if not narration:
             raise ValueError("script must contain narration/body/title for TTS")
