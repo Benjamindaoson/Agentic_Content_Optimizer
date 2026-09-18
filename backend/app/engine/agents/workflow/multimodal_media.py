@@ -7,6 +7,7 @@ import logging
 import math
 import random
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +34,18 @@ def _local_path(uri: str) -> Path:
     if "://" in uri:
         raise ValueError(f"FFmpeg requires a local/file URI, got: {uri}")
     return Path(uri)
+
+
+@dataclass
+class BrandTemplate:
+    """Optional visual template for owned/non-TikTok distribution."""
+
+    text: str = ""
+    font_name: str = "DejaVu Sans"
+    font_size: int = 28
+    margin_x: int = 32
+    margin_y: int = 32
+    opacity: float = 0.82
 
 
 class RunwayVideoGenerator:
@@ -265,12 +278,20 @@ class FFmpegVideoAssembler:
         width: int = 720,
         height: int = 1280,
         fps: int = 30,
+        render_subtitles: bool = True,
+        subtitle_font_name: str = "DejaVu Sans",
+        subtitle_font_size: int = 26,
+        brand_template: Optional[BrandTemplate] = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.ffmpeg_bin = ffmpeg_bin
         self.width = width
         self.height = height
         self.fps = fps
+        self.render_subtitles = render_subtitles
+        self.subtitle_font_name = subtitle_font_name
+        self.subtitle_font_size = subtitle_font_size
+        self.brand_template = brand_template
 
     async def assemble(
         self,
@@ -335,6 +356,30 @@ class FFmpegVideoAssembler:
             raise FileNotFoundError(voice_path)
 
         final_path = work_dir / "final.mp4"
+        subtitle_path = None
+        if self.render_subtitles:
+            subtitle_path = work_dir / "subtitles.srt"
+            self._write_srt(storyboard, subtitle_path)
+
+        platform = str(context.get("platform") or "").lower()
+        brand_applied = (
+            self.brand_template is not None
+            and bool(self.brand_template.text.strip())
+            and platform != "tiktok"
+        )
+        video_filter = self._build_final_video_filter(
+            subtitle_path=subtitle_path,
+            brand_applied=brand_applied,
+        )
+
+        filter_complex = "[1:a]apad[a]"
+        map_video = "0:v:0"
+        video_codec = "copy"
+        if video_filter:
+            filter_complex = f"[0:v]{video_filter}[v];[1:a]apad[a]"
+            map_video = "[v]"
+            video_codec = "libx264"
+
         await self._run(
             self.ffmpeg_bin,
             "-y",
@@ -343,13 +388,17 @@ class FFmpegVideoAssembler:
             "-i",
             str(voice_path),
             "-filter_complex",
-            "[1:a]apad[a]",
+            filter_complex,
             "-map",
-            "0:v:0",
+            map_video,
             "-map",
             "[a]",
             "-c:v",
-            "copy",
+            video_codec,
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
             "-c:a",
             "aac",
             "-shortest",
@@ -368,7 +417,96 @@ class FFmpegVideoAssembler:
                 "height": self.height,
                 "fps": self.fps,
                 "shot_count": len(storyboard),
+                "subtitles_rendered": bool(subtitle_path),
+                "brand_template_applied": brand_applied,
+                "brand_template_suppressed_for_tiktok": (
+                    self.brand_template is not None and platform == "tiktok"
+                ),
             },
+        )
+
+    def _build_final_video_filter(
+        self,
+        *,
+        subtitle_path: Optional[Path],
+        brand_applied: bool,
+    ) -> str:
+        filters: List[str] = []
+
+        if subtitle_path is not None:
+            escaped_path = self._escape_filter_path(subtitle_path)
+            style = (
+                f"FontName={self.subtitle_font_name},"
+                f"FontSize={self.subtitle_font_size},"
+                "PrimaryColour=&H00FFFFFF,"
+                "OutlineColour=&H80000000,"
+                "BorderStyle=1,Outline=2,Shadow=0,"
+                "Alignment=2,MarginV=72"
+            )
+            filters.append(
+                f"subtitles='{escaped_path}':force_style='{style}'"
+            )
+
+        if brand_applied and self.brand_template is not None:
+            brand = self.brand_template
+            text = self._escape_drawtext(brand.text)
+            filters.append(
+                "drawtext="
+                f"text='{text}':"
+                f"font='{self._escape_drawtext(brand.font_name)}':"
+                f"fontsize={brand.font_size}:"
+                f"fontcolor=white@{max(0.0, min(1.0, brand.opacity)):.2f}:"
+                f"x=w-tw-{brand.margin_x}:"
+                f"y=h-th-{brand.margin_y}"
+            )
+
+        return ",".join(filters)
+
+    @staticmethod
+    def _write_srt(
+        storyboard: List[StoryboardShot],
+        path: Path,
+    ) -> None:
+        lines: List[str] = []
+        cursor = 0.0
+        for index, shot in enumerate(storyboard, start=1):
+            start = cursor
+            end = cursor + max(float(shot.duration_seconds), 0.5)
+            cursor = end
+            text = (shot.narration or "").strip()
+            if not text:
+                continue
+            lines.extend(
+                [
+                    str(index),
+                    f"{FFmpegVideoAssembler._srt_time(start)} --> "
+                    f"{FFmpegVideoAssembler._srt_time(end)}",
+                    text.replace("\n", " "),
+                    "",
+                ]
+            )
+        path.write_text("\n".join(lines), encoding="utf-8")
+
+    @staticmethod
+    def _srt_time(seconds: float) -> str:
+        total_ms = max(0, int(round(seconds * 1000)))
+        hours, remainder = divmod(total_ms, 3_600_000)
+        minutes, remainder = divmod(remainder, 60_000)
+        secs, milliseconds = divmod(remainder, 1000)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
+
+    @staticmethod
+    def _escape_filter_path(path: Path) -> str:
+        value = path.as_posix()
+        return value.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+    @staticmethod
+    def _escape_drawtext(value: str) -> str:
+        return (
+            value.replace("\\", "\\\\")
+            .replace(":", "\\:")
+            .replace("'", "\\'")
+            .replace("%", "\\%")
         )
 
     async def _normalize_clip(
