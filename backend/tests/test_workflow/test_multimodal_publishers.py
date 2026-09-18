@@ -91,7 +91,10 @@ async def test_tiktok_direct_post_uploads_video_and_honors_creator_settings(tmp_
                 },
             )
 
-        if request.method == "PUT" and str(request.url) == "https://upload.example/video":
+        if (
+            request.method == "PUT"
+            and str(request.url) == "https://upload.example/video"
+        ):
             captured["upload"] = bytes(request.content)
             captured["content_range"] = request.headers["Content-Range"]
             return httpx.Response(201)
@@ -163,9 +166,7 @@ async def test_tiktok_video_metrics_query_returns_engagement_fields():
         assert request.method == "POST"
         assert request.url.path == "/v2/video/query/"
         assert "view_count" in request.url.query.decode()
-        assert json.loads(request.content) == {
-            "filters": {"video_ids": ["video-1"]}
-        }
+        assert json.loads(request.content) == {"filters": {"video_ids": ["video-1"]}}
         return httpx.Response(
             200,
             json={
