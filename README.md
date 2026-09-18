@@ -211,19 +211,24 @@ Relevant code:
 - quality and approval gates;
 - deterministic runtime tests;
 - structured LLM script/storyboard planner adapter;
+- real Runway asynchronous video-generation adapter with durable output download;
+- real ElevenLabs TTS adapter with request/trace metadata capture;
+- deterministic FFmpeg vertical-video assembly;
+- PostgreSQL-backed durable checkpoints and Alembic migration;
+- multimodal evaluation harness with ffprobe-based artifact checks;
+- authenticated task API for submit/status/approve/cancel/resume;
 - bridge from the new runtime to the existing platform publishing adapters.
 
-### Next adapters
+### Remaining production work
 
-The following should only be treated as implemented after tested adapters land in the repository:
+The core runtime and concrete provider adapters are now implemented. Before claiming a fully deployed short-video agent, the remaining work is:
 
-1. real text/image-to-video provider adapter;
-2. TTS provider adapter;
-3. FFmpeg-based deterministic video assembly;
-4. persistent database/object-store checkpoint implementation;
-5. multimodal evaluation harness;
-6. submit/status/approve/cancel/resume production-job API;
-7. end-to-end feedback ingestion from published short videos.
+1. run credentialed end-to-end tests against Runway and ElevenLabs in a controlled environment;
+2. move generated media from node-local storage to durable MinIO/S3 storage;
+3. add subtitle rendering, brand templates, and richer audio mixing to the FFmpeg assembler;
+4. add a model-based multimodal judge on top of the deterministic evaluation gate;
+5. connect approved artifacts to a real, non-simulated platform publishing integration;
+6. feed published-video metrics back into the strategy/RL loop with production data.
 
 See [Multimodal Content Agent Architecture](docs/MULTIMODAL_CONTENT_AGENT.md).
 
@@ -292,4 +297,4 @@ The differentiator is not simply that the system can generate content. The goal 
 
 ## Status
 
-Active engineering refactor. The multimodal production runtime is implemented; real video-generation, TTS, and deterministic video-assembly adapters are the next delivery slice.
+Active engineering refactor. The multimodal production runtime, Runway video adapter, ElevenLabs TTS adapter, FFmpeg assembler, PostgreSQL checkpoint store, evaluation harness, and task API are implemented. External provider calls are covered with deterministic mocks in CI; credentialed live-provider validation and durable object-storage integration remain before production deployment.
