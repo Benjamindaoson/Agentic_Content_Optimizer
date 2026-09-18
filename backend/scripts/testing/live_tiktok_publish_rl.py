@@ -16,7 +16,6 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select
 
 from app.core.database import AsyncSessionLocal, engine
 from app.core.redis import redis_client
@@ -168,9 +167,7 @@ async def verify_rl_update(
     likes = int(metrics.get("like_count") or 0)
     comments = int(metrics.get("comment_count") or 0)
     shares = int(metrics.get("share_count") or 0)
-    engagement_score = (
-        likes * 1.0 + comments * 2.0 + shares * 2.0
-    ) / views * 1000.0
+    engagement_score = (likes * 1.0 + comments * 2.0 + shares * 2.0) / views * 1000.0
 
     await redis_client.connect()
     try:
