@@ -44,7 +44,6 @@ from app.ml.training.schemas import GenerationTrace, Outcome
 
 class FixedPlanner:
     async def create_script(self, brief, platform):
-        topic = str(brief.get("topic") or "multimodal AI agent")
         return {
             "title": "Multimodal AI Agent",
             "hook": "From brief to finished video",
