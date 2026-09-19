@@ -131,9 +131,7 @@ async def persist_outcome_and_sync(
     likes = int(metrics.get("like_count") or 0)
     comments = int(metrics.get("comment_count") or 0)
     shares = int(metrics.get("share_count") or 0)
-    engagement_score = (
-        likes + 2.0 * comments + 2.0 * shares
-    ) / views * 1000.0
+    engagement_score = (likes + 2.0 * comments + 2.0 * shares) / views * 1000.0
 
     outcome = Outcome(
         id=str(uuid.uuid4()),
@@ -284,9 +282,7 @@ async def main() -> None:
     if state.final_video is None or state.quality_report is None:
         raise RuntimeError("P1 failed: no final artifact/evaluation")
     if not state.quality_report.passed:
-        raise RuntimeError(
-            f"P1/P2 failed quality gate: {state.quality_report.issues}"
-        )
+        raise RuntimeError(f"P1/P2 failed quality gate: {state.quality_report.issues}")
 
     # P2: delete local final file and prove recovery from MinIO.
     final_path = Path(state.final_video.uri)
