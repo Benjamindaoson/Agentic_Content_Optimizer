@@ -1,0 +1,102 @@
+name: Execute P1-P3 Live Proof
+
+on:
+  push:
+    branches:
+      - feature/multimodal-content-agent
+    paths:
+      - ".github/live-e2e-trigger.txt"
+
+jobs:
+  live-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: growth_user
+          POSTGRES_PASSWORD: live_test_password
+          POSTGRES_DB: growth_flywheel_live
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U growth_user -d growth_flywheel_live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      RUN_FULL_PRODUCTION_E2E: "1"
+      DATABASE_URL: postgresql://growth_user:live_test_password@localhost:5432/growth_flywheel_live
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: live-e2e-test-jwt-secret-32-characters
+      CORS_ORIGINS: http://localhost:3000
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: livee2e
+      MINIO_SECRET_KEY: livee2e-secret
+      MULTIMODAL_ARTIFACT_BUCKET: videos
+      MULTIMODAL_ARTIFACT_DIR: runtime/full-production-e2e
+      RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate live credentials
+        run: |
+          test -n "$RUNWAYML_API_SECRET" || (echo "MISSING: RUNWAYML_API_SECRET" && exit 2)
+          test -n "$ELEVENLABS_API_KEY" || (echo "MISSING: ELEVENLABS_API_KEY" && exit 2)
+          test -n "$ELEVENLABS_VOICE_ID" || (echo "MISSING: ELEVENLABS_VOICE_ID" && exit 2)
+          test -n "$OPENAI_API_KEY" || (echo "MISSING: OPENAI_API_KEY" && exit 2)
+          test -n "$TIKTOK_ACCESS_TOKEN" || (echo "MISSING: TIKTOK_ACCESS_TOKEN" && exit 2)
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name live-minio             -p 9000:9000             -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY"             -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY"             minio/minio server /data
+          for i in {1..20}; do
+            curl -fsS http://localhost:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          docker logs live-minio
+          exit 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg and backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Execute P1-P3
+        run: |
+          cd backend
+          python scripts/testing/live_full_production_e2e.py
+
+      - name: Upload proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-p3-live-proof
+          path: backend/runtime/full-production-e2e
+          if-no-files-found: warn
+          retention-days: 7
