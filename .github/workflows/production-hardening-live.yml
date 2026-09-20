@@ -9,7 +9,7 @@ on:
 jobs:
   p2-minio-recovery:
     name: P2 Real S3-Compatible Durability + Recovery
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[live-e2e]') || contains(github.event.head_commit.message, '[p2-storage]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
