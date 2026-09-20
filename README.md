@@ -1,3 +1,9 @@
+> **PORTFOLIO STATUS — LEGACY EXPERIMENT**
+>
+> This repository is retained as a historical content-optimization experiment, not as a current flagship.
+> Historical percentage / ROI claims in older sections should be treated as legacy or illustrative unless they are linked to a reproducible evaluation artifact in this repository.
+> Current flagship work is listed on the GitHub profile.
+
 # Growth Flywheel 
 
 **AI 驱动的内容策略进化引擎**
