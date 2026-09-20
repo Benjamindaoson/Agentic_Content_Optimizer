@@ -1,69 +1,34 @@
 > **PORTFOLIO STATUS — LEGACY EXPERIMENT**
 >
-> This repository is retained as a historical content-optimization experiment, not as a current flagship.
-> Historical percentage / ROI claims in older sections should be treated as legacy or illustrative unless they are linked to a reproducible evaluation artifact in this repository.
-> Current flagship work is listed on the GitHub profile.
+> Historical content-optimization experiment retained for code and design reference.
+> It is not a current flagship and does not claim production deployment or validated business ROI.
 
-# Growth Flywheel 
+# Growth Flywheel
 
-**AI 驱动的内容策略进化引擎**
+**AI-driven content strategy experimentation system**
 
-> 🚀 **业界首个**结合 GRPO + Thompson Sampling + 高级 RAG 的生产级内容生成系统
->
-> 📊 **实测数据**：内容质量 +60%，生成成本 -40%，用户满意度 92%
+Growth Flywheel explores a content-generation and optimization loop combining retrieval, workflow orchestration, feedback signals and policy experimentation.
+
+The repository is useful as an engineering case study for:
+
+- multi-model content generation;
+- RAG and retrieval experiments;
+- workflow / Agent orchestration;
+- reward-signal design;
+- GRPO / bandit-style policy experiments;
+- observability and deployment scaffolding.
+
+## Evidence boundary
+
+Older versions of this README contained promotional performance and ROI figures that were not tied to one frozen, reproducible benchmark artifact. Those headline claims have been removed from the portfolio-facing README.
+
+Technical modules below describe implemented or explored system components. They should not be read as proof of business impact unless a corresponding experiment artifact is linked.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
 [![React 18](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](docs/ml-training/ML_DEPLOYMENT_COMPLETE.md)
-[![Tests](https://img.shields.io/badge/tests-50%25%20coverage-yellow.svg)](backend/tests/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
-
----
-
-## 💡 为什么选择 Growth Flywheel ？
-
-### 一句话价值主张
-**用 AI 自动化内容创作，通过强化学习持续优化，让每一条内容都是爆款。**
-
-### 核心优势对比
-
-| 维度 | 传统方案 | 其他 AI 工具 | Growth Flywheel 2.5 | 提升幅度 |
-|------|----------|--------------|---------------------|----------|
-| **生成质量** | 6/10 | 7/10 | 8.5/10 | **+42%** |
-| **生成成本** | $0.50/条 | $0.30/条 | $0.18/条 | **-40%** |
-| **生成速度** | 30 分钟 | 30 秒 | 8 秒 | **-99.5%** |
-| **个性化** | ❌ | 部分 | ✅ 完全自适应 | **∞** |
-| **持续学习** | ❌ | ❌ | ✅ 在线学习 | **独有** |
-| **多平台** | 1 个 | 1-2 个 | 4 个 | **+300%** |
-
-### ROI 计算示例
-
-**场景**：中型内容团队（10 人），每月生成 1000 条内容
-
-| 项目 | 传统方式 | 使用 Growth Flywheel 2.5 | 节省 |
-|------|----------|--------------------------|------|
-| **人力成本** | $50,000/月 | $15,000/月 | **$35,000** |
-| **LLM 成本** | $0 | $180/月 | -$180 |
-| **时间成本** | 500 小时 | 50 小时 | **450 小时** |
-| **质量提升** | 基准 | +60% 互动率 | **+$20,000 收入** |
-| **总 ROI** | - | - | **$54,820/月** |
-
-**投资回收期**：< 1 个月
-
----
-
-## 📖 项目简介
-
-**Growth Flywheel 2.5** 是一个企业级 AI 驱动的内容生成和增长优化系统，专为社交媒体平台（小红书、抖音、TikTok、快手）设计。系统集成了多个前沿技术栈，包括：
-
-- 🤖 **多 LLM 集成** - Claude Opus 4.6、GPT-4.5、DeepSeek-V3、Gemini 2.0、Dots LLM
-- 🔍 **高级 RAG** - Self-RAG、Adaptive RAG、CRAG、混合检索
-- 🎯 **强化学习** - GRPO、Thompson Sampling、混合奖励模型 V2
-- 🧠 **Agent 编排** - LangGraph 工作流、多 Agent 协作
-- 📊 **MLOps** - MLflow 追踪、模型微调（SFT/DPO）、Adapter 管理
-- 🚀 **生产就绪** - Docker Compose、Kubernetes、监控告警
+[![Status](https://img.shields.io/badge/Status-Legacy%20Experiment-lightgrey.svg)](README.md)
 
 ---
 
@@ -71,7 +36,7 @@
 
 ### 🎯 技术创新
 
-#### 1. 混合奖励模型 V2（业界首创）
+#### 1. 混合奖励模型 V2（实验设计）
 **创新点**：三层混合奖励架构，结合真实世界反馈、AI 质量评估和系统健康指标
 
 ```
@@ -777,7 +742,7 @@ sanitized = sanitize_pii(content)
 | **内容生成** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ |
 | **RAG 能力** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ |
 | **强化学习** | ⭐⭐⭐⭐⭐ | ❌ | ❌ | ❌ |
-| **生产就绪** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| **部署与工程化** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
 | **文档质量** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
 | **社区活跃** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
 
@@ -1720,6 +1685,6 @@ kubectl logs -f deployment/backend -n growth-flywheel
 
 **🎉 开始使用 Growth Flywheel 2.5，让 AI 驱动你的内容增长！**
 
-**状态**: 生产就绪 (95/100) ✅
+**状态**: 部署与工程化 (95/100) ✅
 
 **最后更新**: 2026-02-15
