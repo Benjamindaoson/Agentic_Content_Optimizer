@@ -4,6 +4,7 @@
 
 - [README](../README.md) — Project overview, quick start, architecture
 - [Multimodal Content Agent](MULTIMODAL_CONTENT_AGENT.md) — Long-horizon short-video/content production runtime, recovery semantics, and roadmap
+- [Production Hardening Status](PRODUCTION_HARDENING_STATUS.md) — Executed P0–P3 validation evidence, live blockers, and acceptance state
 - [REPO_REFACTOR_INVENTORY](REPO_REFACTOR_INVENTORY.md) — Refactor mapping and deletion candidates
 
 ## AI Highlights
