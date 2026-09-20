@@ -1,3 +1,3 @@
 P2 real MinIO durability validation trigger.
 Requested by user on 2026-09-20.
-Run: second validation against an actual MinIO server.
+Run: third validation, Quay MinIO server.
