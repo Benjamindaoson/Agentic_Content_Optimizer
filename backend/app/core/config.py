@@ -57,6 +57,96 @@ class Settings(BaseSettings):
     DOTS_API_BASE: str = Field(default="http://localhost:8000", env="DOTS_API_BASE")
     DOTS_API_KEY: Optional[str] = Field(default=None, env="DOTS_API_KEY")
 
+    # Multimodal content production providers
+    RUNWAYML_API_SECRET: Optional[str] = Field(default=None, env="RUNWAYML_API_SECRET")
+    RUNWAYML_API_BASE: str = Field(
+        default="https://api.dev.runwayml.com",
+        env="RUNWAYML_API_BASE",
+    )
+    RUNWAYML_API_VERSION: str = Field(default="2024-11-06", env="RUNWAYML_API_VERSION")
+    RUNWAYML_MODEL: str = Field(default="gen4.5", env="RUNWAYML_MODEL")
+    RUNWAYML_RATIO: str = Field(default="720:1280", env="RUNWAYML_RATIO")
+
+    ELEVENLABS_API_KEY: Optional[str] = Field(default=None, env="ELEVENLABS_API_KEY")
+    ELEVENLABS_API_BASE: str = Field(
+        default="https://api.elevenlabs.io",
+        env="ELEVENLABS_API_BASE",
+    )
+    ELEVENLABS_VOICE_ID: Optional[str] = Field(default=None, env="ELEVENLABS_VOICE_ID")
+    ELEVENLABS_MODEL_ID: str = Field(
+        default="eleven_multilingual_v2",
+        env="ELEVENLABS_MODEL_ID",
+    )
+
+    MULTIMODAL_ARTIFACT_DIR: str = Field(
+        default="backend/runtime/multimodal",
+        env="MULTIMODAL_ARTIFACT_DIR",
+    )
+    MULTIMODAL_DURABLE_STORAGE_ENABLED: bool = Field(
+        default=False,
+        env="MULTIMODAL_DURABLE_STORAGE_ENABLED",
+    )
+    MULTIMODAL_ARTIFACT_BUCKET: str = Field(
+        default="videos",
+        env="MULTIMODAL_ARTIFACT_BUCKET",
+    )
+    MULTIMODAL_LLM_PROVIDER: str = Field(
+        default="claude",
+        env="MULTIMODAL_LLM_PROVIDER",
+    )
+    MULTIMODAL_LLM_MODEL: Optional[str] = Field(
+        default=None,
+        env="MULTIMODAL_LLM_MODEL",
+    )
+    MULTIMODAL_JUDGE_ENABLED: bool = Field(
+        default=False,
+        env="MULTIMODAL_JUDGE_ENABLED",
+    )
+    MULTIMODAL_JUDGE_MODEL: str = Field(
+        default="gpt-5.6-luna",
+        env="MULTIMODAL_JUDGE_MODEL",
+    )
+    MULTIMODAL_JUDGE_SAMPLE_COUNT: int = Field(
+        default=4,
+        env="MULTIMODAL_JUDGE_SAMPLE_COUNT",
+    )
+    MULTIMODAL_SUBTITLES_ENABLED: bool = Field(
+        default=True,
+        env="MULTIMODAL_SUBTITLES_ENABLED",
+    )
+    MULTIMODAL_BRAND_TEXT: str = Field(
+        default="",
+        env="MULTIMODAL_BRAND_TEXT",
+    )
+    MULTIMODAL_BRAND_FONT: str = Field(
+        default="DejaVu Sans",
+        env="MULTIMODAL_BRAND_FONT",
+    )
+    MULTIMODAL_BRAND_FONT_SIZE: int = Field(
+        default=28,
+        env="MULTIMODAL_BRAND_FONT_SIZE",
+    )
+    FFMPEG_BIN: str = Field(default="ffmpeg", env="FFMPEG_BIN")
+    FFPROBE_BIN: str = Field(default="ffprobe", env="FFPROBE_BIN")
+
+    # TikTok Content Posting / Display API
+    TIKTOK_CONTENT_POSTING_ENABLED: bool = Field(
+        default=False,
+        env="TIKTOK_CONTENT_POSTING_ENABLED",
+    )
+    TIKTOK_ACCESS_TOKEN: Optional[str] = Field(
+        default=None,
+        env="TIKTOK_ACCESS_TOKEN",
+    )
+    TIKTOK_API_BASE: str = Field(
+        default="https://open.tiktokapis.com",
+        env="TIKTOK_API_BASE",
+    )
+    TIKTOK_PRIVACY_LEVEL: str = Field(
+        default="SELF_ONLY",
+        env="TIKTOK_PRIVACY_LEVEL",
+    )
+
     # Cohere Rerank（替代 LLM 做重排序，成本降 100 倍）
     COHERE_API_KEY: Optional[str] = Field(default=None, env="COHERE_API_KEY")
 

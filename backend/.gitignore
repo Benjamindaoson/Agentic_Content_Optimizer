@@ -188,3 +188,6 @@ Thumbs.db
 *.csv
 *.parquet
 *.arrow
+
+# Generated multimodal production artifacts
+runtime/multimodal/

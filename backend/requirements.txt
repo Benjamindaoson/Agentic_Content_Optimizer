@@ -1,8 +1,8 @@
 # FastAPI Core
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic>=2.7.4,<3.0.0
+pydantic-settings>=2.2.1,<3.0.0
 
 # Database
 sqlalchemy==2.0.25
@@ -17,12 +17,14 @@ redis==5.0.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
+email-validator==2.1.0.post1
 
 # LangChain & LangGraph
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-community>=0.3.0
-langgraph>=0.2.60
+# Keep the pre-1.0 API family used by the current agent/workflow code.
+langchain==0.3.27
+langchain-core==0.3.72
+langchain-community==0.3.27
+langgraph==0.2.76
 
 # LLM Providers
 anthropic>=0.40.0
@@ -39,9 +41,9 @@ minio==7.2.3
 python-dotenv==1.0.0
 httpx==0.26.0
 aiofiles==23.2.1
-orjson==3.9.12
+orjson>=3.9.14,<4.0.0
 tenacity==8.2.3
-requests==2.31.0
+requests>=2.32.5,<3.0.0
 tiktoken>=0.8.0
 
 # Monitoring
