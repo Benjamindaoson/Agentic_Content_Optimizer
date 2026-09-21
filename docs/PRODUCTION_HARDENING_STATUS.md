@@ -7,12 +7,12 @@ implemented code from credentialed third-party proof.
 
 ## P0 — Required CI: PASS
 
-Latest required PR CI checks are green:
+Latest required CI checks are green:
 
 - Multimodal Slice Lint: PASS
 - Ruff: PASS
 - Black: PASS
-- Multimodal Slice Tests: **22 passed**
+- Multimodal Slice Tests: **38 passed**
 - Docker Build: PASS
 - Ops Scripts Smoke: PASS
 
@@ -93,7 +93,7 @@ a structured blocker report rather than claiming the RL loop passed.
 
 | Phase | Status | Evidence |
 | --- | --- | --- |
-| P0 CI | PASS | 22 multimodal tests + lint + Docker + ops |
+| P0 CI | PASS | 38 multimodal tests + lint + Docker + ops |
 | P1 Real Video E2E | BLOCKED | external Runway/ElevenLabs credentials missing |
 | P2 MinIO Durability/Recovery | PASS | real MinIO delete/recover + matching SHA-256 |
 | P2 Live Multimodal Judge | BLOCKED | OpenAI API credential missing |
