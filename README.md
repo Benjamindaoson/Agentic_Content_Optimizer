@@ -1,3 +1,6 @@
+> **Portfolio status / 作品集状态：FLAGSHIP · Agent Systems**
+> Canonical independent flagship repository for recoverable multimodal content production.
+
 # Multimodal Content Creation Agent
 
 **Multimodal Agent · Agent Runtime · Tool Use · Content Generation · Multimodal Evaluation**
