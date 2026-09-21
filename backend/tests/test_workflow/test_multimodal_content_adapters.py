@@ -125,3 +125,63 @@ async def test_existing_platform_publisher_preserves_final_video():
     assert result["post_id"] == "dy-001"
     assert adapter.published["video_path"] == "s3://bucket/final.mp4"
     assert adapter.published["production_job_id"] == "job-1"
+
+
+@pytest.mark.asyncio
+async def test_storyboard_rejects_duplicate_shot_ids():
+    class DuplicateShotLLM(FakeStructuredLLM):
+        async def structured_output(
+            self, messages, schema, model=None, temperature=0.7
+        ):
+            return {
+                "shots": [
+                    {
+                        "shot_id": "same",
+                        "narration": "一",
+                        "visual_prompt": "一",
+                        "duration_seconds": 2,
+                    },
+                    {
+                        "shot_id": "same",
+                        "narration": "二",
+                        "visual_prompt": "二",
+                        "duration_seconds": 2,
+                    },
+                ]
+            }
+
+    with pytest.raises(ValueError, match="duplicate storyboard shot_id"):
+        await LLMContentPlanner(DuplicateShotLLM()).create_storyboard({}, "douyin")
+
+
+@pytest.mark.asyncio
+async def test_storyboard_rejects_out_of_range_duration():
+    class LongShotLLM(FakeStructuredLLM):
+        async def structured_output(
+            self, messages, schema, model=None, temperature=0.7
+        ):
+            return {
+                "shots": [
+                    {
+                        "shot_id": "long",
+                        "narration": "旁白",
+                        "visual_prompt": "画面",
+                        "duration_seconds": 120,
+                    }
+                ]
+            }
+
+    with pytest.raises(ValueError, match="between 0.5 and 10"):
+        await LLMContentPlanner(LongShotLLM()).create_storyboard({}, "douyin")
+
+
+@pytest.mark.asyncio
+async def test_script_rejects_missing_required_fields():
+    class IncompleteScriptLLM(FakeStructuredLLM):
+        async def structured_output(
+            self, messages, schema, model=None, temperature=0.7
+        ):
+            return {"title": "只有标题", "target_duration_seconds": 15}
+
+    with pytest.raises(ValueError, match="incomplete script"):
+        await LLMContentPlanner(IncompleteScriptLLM()).create_script({}, "douyin")

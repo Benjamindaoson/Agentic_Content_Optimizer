@@ -15,6 +15,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol
 from uuid import uuid4
 
+import httpx
+
 
 class ProductionStatus(str, Enum):
     PENDING = "pending"
@@ -36,6 +38,10 @@ class ProductionStage(str, Enum):
     APPROVAL = "approval"
     PUBLISH = "publish"
     COMPLETED = "completed"
+
+
+class RetryableProductionError(RuntimeError):
+    """Explicitly marks a provider/tool failure as safe to retry."""
 
 
 class AssetKind(str, Enum):
@@ -213,6 +219,8 @@ class MultimodalContentProductionAgent:
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
         self.max_parallel_shots = max_parallel_shots
+        self._job_locks: Dict[str, asyncio.Lock] = {}
+        self._job_locks_guard = asyncio.Lock()
 
     async def run(
         self,
@@ -225,7 +233,31 @@ class MultimodalContentProductionAgent:
     ) -> ProductionState:
         """Run or resume a production job."""
 
-        if job_id and resume:
+        resolved_job_id = job_id or f"content_{uuid4().hex[:16]}"
+        async with self._job_locks_guard:
+            job_lock = self._job_locks.setdefault(resolved_job_id, asyncio.Lock())
+
+        async with job_lock:
+            return await self._run_locked(
+                brief=brief,
+                platform=platform,
+                job_id=resolved_job_id,
+                resume=resume,
+                metadata=metadata,
+            )
+
+    async def _run_locked(
+        self,
+        *,
+        brief: Optional[Dict[str, Any]],
+        platform: str,
+        job_id: str,
+        resume: bool,
+        metadata: Optional[Dict[str, Any]],
+    ) -> ProductionState:
+        """Execute one job while holding its in-process execution lease."""
+
+        if resume:
             state = await self.checkpoint_store.load(job_id)
         else:
             state = None
@@ -234,7 +266,7 @@ class MultimodalContentProductionAgent:
             if not brief:
                 raise ValueError("brief is required when creating a new job")
             state = ProductionState(
-                job_id=job_id or f"content_{uuid4().hex[:16]}",
+                job_id=job_id,
                 brief=dict(brief),
                 platform=platform,
                 metadata=dict(metadata or {}),
@@ -334,11 +366,20 @@ class MultimodalContentProductionAgent:
 
             if self.publisher is not None and state.publish_result is None:
                 state.stage = ProductionStage.PUBLISH
-                state.publish_result = await self._call_with_retry(
-                    state,
-                    ProductionStage.PUBLISH.value,
-                    lambda: self.publisher.publish(state),
-                )
+                if state.metadata.get("publish_attempted"):
+                    raise RuntimeError(
+                        "publish outcome is ambiguous; reconcile the external "
+                        "platform result before retrying"
+                    )
+                state.metadata["publish_attempted"] = True
+                await self.checkpoint_store.save(state)
+                try:
+                    state.publish_result = await self.publisher.publish(state)
+                except Exception:
+                    state.metadata["publish_ambiguous"] = True
+                    await self.checkpoint_store.save(state)
+                    raise
+                state.metadata["publish_ambiguous"] = False
                 await self.checkpoint_store.save(state)
 
             state.stage = ProductionStage.COMPLETED
@@ -375,6 +416,8 @@ class MultimodalContentProductionAgent:
             raise KeyError(f"unknown production job: {job_id}")
         if state.quality_report is None or not state.quality_report.passed:
             raise ValueError("job has not passed the quality gate")
+        if state.status != ProductionStatus.WAITING_APPROVAL:
+            raise ValueError("only jobs waiting for approval can be approved")
 
         state.approved = True
         state.status = ProductionStatus.PENDING
@@ -402,7 +445,15 @@ class MultimodalContentProductionAgent:
                 state.visual_assets[shot.shot_id] = asset
                 await self.checkpoint_store.save(state)
 
-        await asyncio.gather(*(generate_one(shot) for shot in state.storyboard))
+        tasks = [asyncio.create_task(generate_one(shot)) for shot in state.storyboard]
+        try:
+            await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
 
     async def _call_with_retry(self, state: ProductionState, key: str, operation):
         last_error: Optional[Exception] = None
@@ -423,7 +474,7 @@ class MultimodalContentProductionAgent:
                 )
                 await self.checkpoint_store.save(state)
 
-                if retry_index >= self.max_retries:
+                if retry_index >= self.max_retries or not self._is_retryable(exc):
                     raise
 
                 await asyncio.sleep(self.retry_backoff_seconds * (2**retry_index))
@@ -431,6 +482,24 @@ class MultimodalContentProductionAgent:
         if last_error is not None:  # pragma: no cover
             raise last_error
         raise RuntimeError("retry loop exited without result")  # pragma: no cover
+
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        if isinstance(
+            exc,
+            (
+                RetryableProductionError,
+                asyncio.TimeoutError,
+                TimeoutError,
+                ConnectionError,
+                httpx.TransportError,
+            ),
+        ):
+            return True
+        if isinstance(exc, httpx.HTTPStatusError):
+            status_code = exc.response.status_code
+            return status_code in {408, 409, 425, 429} or status_code >= 500
+        return bool(getattr(exc, "retryable", False))
 
     @staticmethod
     def _context(state: ProductionState) -> Dict[str, Any]:

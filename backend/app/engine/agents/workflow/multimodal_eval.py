@@ -268,6 +268,9 @@ class MultimodalEvaluationHarness:
                     "final_video_probe_failed",
                     "missing_video_stream",
                     "missing_audio_stream",
+                    "duration_mismatch",
+                    "duration_unknown",
+                    "script_incomplete",
                 )
             )
             for issue in issues

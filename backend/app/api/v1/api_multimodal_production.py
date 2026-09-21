@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_active_user
+from app.api.v1.api_outcomes import _assert_trace_access
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.engine.agents.workflow.multimodal_persistence import (
@@ -77,11 +78,13 @@ def _get_service_or_503():
 async def submit_job(
     request: SubmitProductionJobRequest,
     current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
 ):
     service = _get_service_or_503()
     try:
         metadata = {}
         if request.trace_id:
+            await _assert_trace_access(db, request.trace_id, current_user)
             metadata["trace_id"] = request.trace_id
         job_id = await service.submit(
             brief=request.brief,
@@ -205,6 +208,26 @@ async def publish_tiktok(
         raise HTTPException(status_code=404, detail="任务不存在")
     _assert_owner(state, current_user)
 
+    existing_publish_id = state.metadata.get("tiktok_publish_id")
+    if existing_publish_id:
+        return state.metadata.get("last_publish_result") or {
+            "publish_id": existing_publish_id,
+            "status": "already_submitted",
+        }
+    if state.metadata.get("tiktok_publish_attempted"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "上一次 TikTok 发布结果不明确；请先通过平台后台完成对账，"
+                "不要自动重试以免重复发布"
+            ),
+        )
+
+    state.metadata["tiktok_publish_attempted"] = True
+    state.metadata["tiktok_publish_ambiguous"] = False
+    state.metadata["tiktok_publish_attempted_at"] = datetime.utcnow().isoformat()
+    await store.save(state)
+
     publisher = _get_tiktok_publisher(request.privacy_level)
     try:
         result = await publisher.publish(
@@ -214,13 +237,22 @@ async def publish_tiktok(
             brand_organic_toggle=request.brand_organic_toggle,
         )
     except (ValueError, FileNotFoundError) as exc:
+        state.metadata["tiktok_publish_attempted"] = False
+        state.metadata["tiktok_publish_ambiguous"] = False
+        state.metadata["tiktok_publish_error"] = str(exc)
+        await store.save(state)
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (httpx.HTTPError, RuntimeError) as exc:
+        state.metadata["tiktok_publish_ambiguous"] = True
+        state.metadata["tiktok_publish_error"] = str(exc)
+        await store.save(state)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     state.publish_result = result
     state.metadata["tiktok_publish_id"] = result.get("publish_id")
     state.metadata["last_publish_result"] = result
+    state.metadata["tiktok_publish_ambiguous"] = False
+    state.metadata.pop("tiktok_publish_error", None)
     await store.save(state)
     return result
 
@@ -267,6 +299,13 @@ async def ingest_tiktok_feedback(
         raise HTTPException(status_code=404, detail="任务不存在")
     _assert_owner(state, current_user)
 
+    post_ids = {str(item) for item in (state.metadata.get("tiktok_post_ids") or [])}
+    if request.video_id not in post_ids:
+        raise HTTPException(
+            status_code=409,
+            detail="video_id is not bound to this production job",
+        )
+
     publisher = _get_tiktok_publisher()
     try:
         metrics = await publisher.query_video_metrics(request.video_id)
@@ -281,6 +320,7 @@ async def ingest_tiktok_feedback(
 
     trace_id = state.metadata.get("trace_id")
     rl_synced = False
+    rl_sync_status = "not_applicable"
     outcome_id = None
     if trace_id:
         stmt = select(Outcome).where(
@@ -288,6 +328,33 @@ async def ingest_tiktok_feedback(
             Outcome.time_bucket == request.time_bucket,
         )
         outcome = (await db.execute(stmt)).scalar_one_or_none()
+        incoming_snapshot = {
+            "impressions": views,
+            "likes": likes,
+            "comments": comments,
+            "shares": shares,
+            "engagement_score": engagement_score,
+        }
+        if outcome is not None and outcome.rl_synced == 1:
+            existing_snapshot = {
+                "impressions": int(outcome.impressions or 0),
+                "likes": int(outcome.likes or 0),
+                "comments": int(outcome.comments or 0),
+                "shares": int(outcome.shares or 0),
+                "engagement_score": float(outcome.engagement_score or 0.0),
+            }
+            if existing_snapshot != incoming_snapshot:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "this trace/time_bucket was already synchronized to RL; "
+                        "use a new time bucket for changed metrics"
+                    ),
+                )
+            rl_synced = True
+            rl_sync_status = "already_synced"
+            outcome_id = outcome.id
+
         if outcome is None:
             outcome = Outcome(
                 id=str(uuid.uuid4()),
@@ -310,7 +377,7 @@ async def ingest_tiktok_feedback(
                 rl_synced=0,
             )
             db.add(outcome)
-        else:
+        elif not rl_synced:
             outcome.impressions = views
             outcome.likes = likes
             outcome.comments = comments
@@ -318,17 +385,19 @@ async def ingest_tiktok_feedback(
             outcome.engagement_score = engagement_score
             outcome.measured_at = datetime.utcnow()
 
-        await db.flush()
-        rl_synced = await sync_outcome_to_rl(
-            db=db,
-            trace_id=str(trace_id),
-            engagement_score=engagement_score,
-            time_bucket=request.time_bucket,
-        )
-        outcome.rl_synced = 1 if rl_synced else 0
-        outcome.rl_synced_at = datetime.utcnow() if rl_synced else None
-        await db.flush()
-        outcome_id = outcome.id
+        if not rl_synced:
+            await db.flush()
+            rl_synced = await sync_outcome_to_rl(
+                db=db,
+                trace_id=str(trace_id),
+                engagement_score=engagement_score,
+                time_bucket=request.time_bucket,
+            )
+            rl_sync_status = "synced" if rl_synced else "pending"
+            outcome.rl_synced = 1 if rl_synced else 0
+            outcome.rl_synced_at = datetime.utcnow() if rl_synced else None
+            await db.flush()
+            outcome_id = outcome.id
 
     feedback = {
         "platform": "tiktok",
@@ -339,6 +408,7 @@ async def ingest_tiktok_feedback(
         "trace_id": trace_id,
         "outcome_id": outcome_id,
         "rl_synced": rl_synced,
+        "rl_sync_status": rl_sync_status,
     }
     state.metadata["latest_platform_feedback"] = feedback
     await store.save(state)

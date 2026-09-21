@@ -1,6 +1,6 @@
 # Production Hardening Validation Status
 
-Last updated: 2026-09-20
+Last updated: 2026-09-21
 
 This document records **executed validation evidence**. It intentionally separates
 implemented code from credentialed third-party proof.
@@ -103,3 +103,21 @@ a structured blocker report rather than claiming the RL loop passed.
 The project should currently be described as **production-hardening complete at
 the code and deterministic/infrastructure-validation layer, with credentialed
 third-party E2E validation pending**.
+
+## 2026-09-21 Consolidation Hardening
+
+The repository consolidation patch adds deterministic coverage and guards for:
+
+- same-job execution serialization and sibling-task cancellation/draining;
+- transient-only retries and ambiguous-publish protection;
+- cancelled-job approval rejection;
+- script/storyboard schema enforcement, duplicate shot IDs and duration bounds;
+- hard quality failures for incomplete scripts and duration mismatch;
+- collision-resistant artifact paths;
+- trace ownership, job-bound TikTok post IDs and idempotent RL synchronization;
+- production Compose forwarding for media-provider settings.
+
+Local validation passed **37 non-database multimodal tests**, Ruff and Black.
+The PostgreSQL checkpoint integration test and container build remain delegated
+to the required GitHub Actions run before merge; this section must not be read as
+evidence that those pending checks passed.

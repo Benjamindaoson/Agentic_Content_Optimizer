@@ -129,7 +129,21 @@ class LLMContentPlanner(ContentPlanner):
             model=self.model,
             temperature=self.temperature,
         )
-        return dict(result)
+        script = dict(result)
+        missing = [
+            key
+            for key in self.SCRIPT_SCHEMA["required"]
+            if key not in script
+            or script[key] is None
+            or (isinstance(script[key], str) and not script[key].strip())
+        ]
+        if missing:
+            raise ValueError("LLM returned an incomplete script: " + ", ".join(missing))
+        duration = float(script["target_duration_seconds"])
+        if not 5 <= duration <= 300:
+            raise ValueError("target_duration_seconds must be between 5 and 300")
+        script["target_duration_seconds"] = duration
+        return script
 
     async def create_storyboard(
         self,
@@ -164,9 +178,17 @@ class LLMContentPlanner(ContentPlanner):
             raise ValueError("LLM returned an empty storyboard")
 
         storyboard: List[StoryboardShot] = []
+        seen_shot_ids: set[str] = set()
         for index, raw in enumerate(raw_shots, start=1):
             shot_id = str(raw.get("shot_id") or f"shot-{index}")
-            duration = max(float(raw["duration_seconds"]), 0.5)
+            if shot_id in seen_shot_ids:
+                raise ValueError(f"duplicate storyboard shot_id: {shot_id}")
+            seen_shot_ids.add(shot_id)
+            duration = float(raw["duration_seconds"])
+            if not 0.5 <= duration <= 10:
+                raise ValueError(
+                    f"duration_seconds for {shot_id} must be between 0.5 and 10"
+                )
             metadata = {
                 key: raw[key] for key in ("camera", "transition") if raw.get(key)
             }

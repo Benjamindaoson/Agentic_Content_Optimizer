@@ -1,306 +1,169 @@
-# Multimodal Content Production & Growth Agent
+# Multimodal Content Creation Agent
 
-> A production-oriented agent system for turning content briefs into researched, generated, reviewed, and publishable social content — with long-horizon execution, recovery, evaluation, human approval, and feedback-driven optimization.
+**Multimodal Agent · Agent Runtime · Tool Use · Content Generation · Multimodal Evaluation**
 
-This repository started as **Growth Flywheel**, an AI content-generation and growth-optimization system. It is now being evolved into a **Multimodal Content Production & Growth Agent** that treats content production as a stateful execution problem rather than a one-shot generation call.
+面向短视频营销、品牌内容生产和多媒体创作场景的可恢复多模态内容生产系统。系统将内容目标拆解为脚本、分镜、视频素材、语音、合成、质量检查、人工审核和发布反馈等阶段，并把任务状态、工具执行、失败恢复与证据保存在模型之外。
 
-## Why this project
+> 当前状态：核心运行时、真实供应商适配器、持久化、质量门和任务 API 已完成代码实现与确定性测试。Runway、ElevenLabs、OpenAI Judge 与 TikTok 的凭据驱动端到端验证仍需在真实账号环境中完成；仓库不将模拟测试描述为生产部署。
 
-Most content-generation demos stop at:
+## 系统边界
 
-```text
-prompt -> text
+本项目解决的是长链路多模态生产的系统工程问题：
+
+- 将创作目标转化为结构化脚本和可执行分镜；
+- 统一调用视频生成、语音合成、FFmpeg 和对象存储工具；
+- 在阶段之间持久化 Checkpoint，支持 Resume 和失败恢复；
+- 用确定性媒体检查与可选多模态 Judge 阻断不完整结果；
+- 在发布前保留 Human-in-the-loop 审核；
+- 接收平台指标并写入 Outcome / RL 接口。
+
+它不是一个“一次 Prompt 生成视频”的 Demo，也不声称已经完成无人值守的生产级自动发布。
+
+## 执行流程
+
+```mermaid
+flowchart TD
+    A["Content Brief"] --> B["Script + Storyboard"]
+    B --> C["Visual Generation"]
+    B --> D["Voice Synthesis"]
+    C --> E["FFmpeg Assembly"]
+    D --> E
+    E --> F["Deterministic Checks + Judge"]
+    F --> G["Human Approval"]
+    G --> H["Platform Publish"]
+    H --> I["Metrics + Outcome / RL"]
 ```
 
-A production content agent has to manage a much longer loop:
+核心状态链：
 
 ```text
-brief
-  -> research / trend signals
-  -> strategy
-  -> script
-  -> storyboard
-  -> media generation
-  -> voice
-  -> assembly
-  -> quality / safety evaluation
-  -> human approval
-  -> platform publishing
-  -> performance feedback
-  -> strategy optimization
+PENDING → RUNNING → WAITING_APPROVAL → COMPLETED
+                    ↘ NEEDS_REVISION
+RUNNING → FAILED / CANCELLED
 ```
 
-The engineering problem is therefore not only generation quality. It is also **orchestration, durable state, tool execution, recovery, evaluation, permissions, and feedback**.
+## 已实现能力
 
-## Current architecture
+### Agent Runtime
 
-```text
-                         Content Brief
-                              |
-                              v
-                    Trend / Reference Layer
-                 RAG + crawlers + trend analysis
-                              |
-                              v
-                     Agent Orchestration
-          Trend -> Director -> Writer -> Critic -> Refine
-                              |
-                              v
-                   Production Runtime
-       Script -> Storyboard -> Visuals -> Voice -> Assembly
-                              |
-                              v
-                  Quality / Safety Gate
-                              |
-                              v
-                     Human Approval
-                              |
-                              v
-                  Platform Adaptation
-              XHS / Douyin / other adapters
-                              |
-                              v
-                   Outcome Feedback
-          engagement / ranking / RL / evaluation
-```
+- 固定阶段的长程任务编排；
+- 每阶段 Checkpoint 与按 `job_id` 恢复；
+- 有界并行的镜头生成；
+- 仅对明确的瞬时错误执行指数退避重试；
+- 同一任务的进程内执行互斥；
+- 取消、质量门、人工审核和发布前保护；
+- 发布尝试标记，阻止网络结果不明时自动重复发布。
 
-## Agent runtime
+核心实现：
 
-The new multimodal production runtime lives at:
+- `backend/app/engine/agents/workflow/multimodal_content_workflow.py`
+- `backend/app/engine/agents/workflow/multimodal_service.py`
+- `backend/app/engine/agents/workflow/multimodal_persistence.py`
 
-`backend/app/engine/agents/workflow/multimodal_content_workflow.py`
+### 多模态工具链
 
-It provides:
+- 结构化 LLM 脚本与分镜规划；
+- Runway 异步视频生成适配器；
+- ElevenLabs TTS 适配器；
+- FFmpeg 竖屏视频合成；
+- SRT 字幕与可配置品牌模板；
+- MinIO / S3 兼容素材持久化和重新物化。
 
-- **long-horizon execution** across multiple production stages;
-- **checkpoint after every completed stage**;
-- **resume by job ID** without replaying completed work;
-- **bounded parallel generation** for storyboard shots;
-- **retry with exponential backoff** for transient provider/tool failures;
-- **error history** with stage and attempt metadata;
-- **quality gate** before release;
-- **Human-in-the-loop approval** for publish actions;
-- provider-neutral interfaces for LLMs, image/video models, TTS, assemblers, MCP tools, and publishers.
+核心实现：
 
-### Production flow
+- `backend/app/engine/agents/workflow/multimodal_content_adapters.py`
+- `backend/app/engine/agents/workflow/multimodal_media.py`
+- `backend/app/engine/agents/workflow/multimodal_artifacts.py`
 
-```text
-Brief
-  |
-  v
-Script
-  |
-  v
-Storyboard
-  |
-  +-----------------------------+
-  |                             |
-  v                             v
-Visual / Video Assets       Voice / Audio
-  |                             |
-  +--------------+--------------+
-                 |
-                 v
-           Final Assembly
-                 |
-                 v
-          Multimodal Eval
-                 |
-                 v
-          Human Approval
-                 |
-                 v
-             Publish
-```
+### Evaluation
 
-If a provider fails halfway through a long task, completed artifacts remain checkpointed. A resumed job continues from the latest valid state rather than starting over.
+- 脚本完整性检查；
+- 分镜与素材覆盖率检查；
+- ffprobe 视频流、音频流和时长检查；
+- 可选的抽帧 OpenAI 多模态 Judge；
+- 确定性硬失败不能被模型评分覆盖。
 
-## Existing capabilities reused by the multimodal agent
+核心实现：`backend/app/engine/agents/workflow/multimodal_eval.py`。
 
-### Agent orchestration
+### API 与反馈
 
-The repository already includes:
+任务 API 支持：
 
-- LangGraph-based workflow orchestration;
-- Trend, Director, Writer, Critic, and refinement components;
-- conditional routing and iterative generation;
-- task state and workflow tracing;
-- multi-agent collaboration components.
+- 提交、状态查询、审核、取消和恢复；
+- TikTok 显式发布与发布状态查询；
+- 已发布视频 ID 绑定后的指标回收；
+- Outcome 持久化及幂等 RL 同步保护。
 
-Relevant code:
+核心实现：
 
-- `backend/app/engine/agents/workflow/`
-- `backend/app/engine/agents/content/`
-- `backend/app/engine/agents/planning/`
+- `backend/app/api/v1/api_multimodal_production.py`
+- `backend/app/engine/agents/workflow/multimodal_publishers.py`
+- `backend/app/ml/rl/outcome_reward_bridge.py`
 
-### RAG and content intelligence
+## 可靠性设计
 
-The system contains retrieval and reference-content infrastructure for:
+| 风险 | 当前控制 |
+| --- | --- |
+| 中途失败导致全部重做 | 阶段级 Checkpoint，恢复时复用已完成结果 |
+| 多镜头并行任务残留 | 首个失败后取消并回收同批任务 |
+| 永久错误被重复收费 | 仅重试显式瞬时错误 |
+| 重复审核或取消后发布 | 只有 `WAITING_APPROVAL` 状态可批准 |
+| 网络超时导致重复发布 | 发布尝试持久标记，结果不明时要求先对账 |
+| 节点本地文件丢失 | 从 MinIO / S3 重新物化后再评测 |
+| 路径清洗碰撞 | 清洗结果附加原始值哈希 |
+| 反馈污染其他任务 | trace 所有权、任务 post ID 绑定和 RL 幂等检查 |
 
-- hybrid retrieval;
-- adaptive retrieval strategies;
-- reference-content filtering;
-- trend and viral-pattern analysis;
-- content-quality signals.
+## 验证状态
 
-Relevant code:
+| 层级 | 状态 | 说明 |
+| --- | --- | --- |
+| P0 代码质量与确定性测试 | 已完成 | 多模态测试、Lint、Docker 与运维检查由 CI 执行 |
+| P1 真实视频生成与 TTS | 待凭据验证 | 需要 Runway 与 ElevenLabs 账号密钥 |
+| P2 持久化与恢复 | 部分完成 | 真实 MinIO 删除/恢复路径已验证；在线 Judge 仍需 OpenAI 凭据 |
+| P3 发布与指标回流 | 待凭据验证 | 需要 TikTok 开发者应用、OAuth Scope 和真实发布授权 |
 
-- `backend/app/engine/rag/`
-- `backend/app/data/analyzers/`
-- `backend/app/data/crawlers/`
+详细证据与阻塞项见 [`docs/PRODUCTION_HARDENING_STATUS.md`](docs/PRODUCTION_HARDENING_STATUS.md)。
 
-### Video-oriented platform adaptation
+## 当前限制
 
-The existing platform layer already supports video-oriented content structures, including:
+- 主流程是固定、可审计的生产状态机，尚未实现由 Judge 自动触发的开放式重规划循环；
+- 活跃任务仍由 API 进程中的 `asyncio` 执行，标准 Compose 暂时固定为单 API worker；跨进程自动接管需迁移到分布式 Worker / Queue；
+- TikTok 发布是显式 API 操作，不在默认任务链中静默触发；
+- 第三方真实调用会产生成本，Live Workflow 默认不自动运行；
+- 没有真实凭据和平台返回证据时，只能声明“代码实现和确定性验证完成”。
 
-- Douyin video-script formatting;
-- content-type and video-path models;
-- multi-platform adaptation;
-- publishing abstractions;
-- platform performance feedback.
-
-Relevant code:
-
-- `backend/app/mcp/platform_adapters.py`
-- `backend/app/engine/growth_brain/multi_platform_engine.py`
-
-### Multimodal cover generation
-
-The repository includes a multimodal cover engine with:
-
-- cover candidate generation;
-- image-provider abstraction;
-- CTR-oriented scoring;
-- A/B testing support.
-
-Relevant code:
-
-- `backend/app/engine/growth_brain/multimodal_cover_engine.py`
-
-### Post-training and optimization
-
-The repository also contains model/strategy optimization components around:
-
-- SFT;
-- DPO;
-- GRPO;
-- Thompson Sampling;
-- contextual bandits;
-- reward and outcome feedback;
-- online-learning related workflows.
-
-Relevant code:
-
-- `backend/app/ml/`
-- `backend/scripts/ml-training/`
-
-## What is implemented vs. next
-
-### Implemented
-
-- content and agent workflow foundations;
-- LangGraph orchestration;
-- video-script/platform adaptation;
-- multimodal cover generation;
-- RAG / reference-content infrastructure;
-- RL / post-training components;
-- publishing abstractions;
-- recoverable multimodal production runtime;
-- checkpoint/resume;
-- retry and bounded concurrency;
-- quality and approval gates;
-- deterministic runtime tests;
-- structured LLM script/storyboard planner adapter;
-- real Runway asynchronous video-generation adapter with durable output download;
-- real ElevenLabs TTS adapter with request/trace metadata capture;
-- deterministic FFmpeg vertical-video assembly;
-- PostgreSQL-backed durable checkpoints and Alembic migration;
-- multimodal evaluation harness with ffprobe-based artifact checks;
-- authenticated task API for submit/status/approve/cancel/resume;
-- MinIO/S3-compatible durable artifact persistence and rematerialization;
-- SRT subtitle rendering plus configurable brand templates, with TikTok brand-overlay suppression;
-- optional frame-sampled OpenAI multimodal judge layered on deterministic artifact checks;
-- real TikTok Content Posting API adapter with creator-info validation, chunked FILE_UPLOAD, AIGC disclosure, and post-status polling;
-- TikTok Display API metrics ingestion persisted as Outcomes and fed into the existing RL feedback bridge;
-- guarded, manually triggered paid-provider live E2E workflow for Runway + ElevenLabs (+ optional multimodal judge);
-- bridge from the new runtime to the existing platform publishing adapters.
-
-### Remaining production work
-
-The production-hardening code path is now implemented. The remaining gap is **credentialed deployment evidence**, not another architecture skeleton:
-
-1. run the manual live E2E workflow with real Runway and ElevenLabs credentials and retain the generated artifact/logs;
-2. validate MinIO against a real deployment rather than only deterministic test doubles;
-3. configure a real TikTok developer app, OAuth token/scopes, and complete a consented Direct Post test; unaudited TikTok clients remain subject to platform visibility restrictions;
-4. enable the OpenAI multimodal judge in a credentialed environment and freeze regression cases/thresholds;
-5. collect real post-publication metrics and verify the Outcome -> RL update path with production data;
-6. move active job execution from in-process asyncio tasks to a distributed worker/queue so execution itself survives API-process restarts and horizontal scaling.
-
-See [Multimodal Content Agent Architecture](docs/MULTIMODAL_CONTENT_AGENT.md).
-
-## Reliability model
-
-The runtime treats each content job as a durable state machine.
-
-Examples:
-
-- a failed shot can be retried without regenerating successful shots;
-- a failed assembly step reuses existing script, storyboard, visuals, and audio;
-- a job can stop at human approval and resume later;
-- unsafe or low-quality output can be blocked before publication;
-- provider-specific failures remain isolated behind tool interfaces.
-
-This separation keeps the **agent runtime** independent from individual model vendors.
-
-## Testing
-
-The new runtime has deterministic tests for:
-
-- full production-flow completion;
-- transient visual-provider retry;
-- checkpoint and resume after human approval;
-- quality-gate blocking before publish.
-
-Run the focused test suite from `backend/`:
+## 本地验证
 
 ```bash
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-test.txt
 pytest tests/test_workflow/test_multimodal_*.py -q
 ```
 
-The repository CI also runs lint, tests, Docker build validation, and ops smoke checks.
+运行服务前，从 `.env.example` 配置数据库、对象存储和供应商变量。真实媒体验证必须显式提供：
 
-## Technology
+```text
+RUNWAYML_API_SECRET
+ELEVENLABS_API_KEY
+ELEVENLABS_VOICE_ID
+OPENAI_API_KEY          # 仅启用在线 Judge 时需要
+TIKTOK_ACCESS_TOKEN     # 仅真实发布/指标回收时需要
+```
 
-Core technologies already present in the repository include:
+## 项目迁移
 
-- Python / FastAPI
-- LangGraph / LangChain
-- PostgreSQL / Redis
-- Qdrant
-- Celery
-- Docker / Kubernetes manifests
-- Prometheus
-- OpenAI / Anthropic / Google model integrations
-- Pillow / OpenCV
-- RAG, post-training, RL, and evaluation components
+本仓库由原 **Agentic Content Optimizer / Growth Flywheel** 升级而来，保留原 Git 历史。旧内容优化实验作为历史参考保存在 `legacy-growth-optimizer-v1` 分支，不再作为当前项目的能力或业务效果证明。
 
-The multimodal runtime intentionally uses **protocol-based tool boundaries**, so future video/TTS/assembly providers can be replaced without rewriting orchestration logic.
+`haole-mas`、`reward-modeling-lab`、`RewardLens` 等项目保持独立：本仓库只使用与多模态生产直接相关的接口或设计，不复制其他旗舰仓库。
 
-## Project direction
+## 文档
 
-The intended portfolio positioning is:
+- [`docs/MULTIMODAL_CONTENT_AGENT.md`](docs/MULTIMODAL_CONTENT_AGENT.md)：架构与恢复语义
+- [`docs/PRODUCTION_HARDENING_STATUS.md`](docs/PRODUCTION_HARDENING_STATUS.md)：验证状态和证据边界
+- [`docs/LIVE_VALIDATION_TRIGGER.md`](docs/LIVE_VALIDATION_TRIGGER.md)：付费/凭据驱动验证说明
+- [`docs/INDEX.md`](docs/INDEX.md)：文档索引
 
-> **Multimodal Content Production & Growth Agent** — a long-horizon agent system for research, script and storyboard planning, multimodal asset generation, quality-controlled assembly, human-approved publishing, and performance-feedback optimization.
+## License
 
-The differentiator is not simply that the system can generate content. The goal is to demonstrate how an agent can **plan, call tools, preserve state, recover from failure, pass evaluation gates, obtain approval, and complete a real multimodal production workflow**.
-
-## Documentation
-
-- [Documentation Index](docs/INDEX.md)
-- [Multimodal Content Agent Architecture](docs/MULTIMODAL_CONTENT_AGENT.md)
-- [Repository Refactor Inventory](docs/REPO_REFACTOR_INVENTORY.md)
-- [Technical Documentation](TECHNICAL_DOCUMENTATION.md)
-
-## Status
-
-Active engineering refactor. The runtime, Runway video adapter, ElevenLabs TTS adapter, FFmpeg subtitle/brand assembly, PostgreSQL checkpoints, MinIO/S3 artifact store, deterministic + optional model-based multimodal evaluation, authenticated task API, TikTok Direct Post adapter, and TikTok metrics -> RL feedback path are implemented. External provider/platform calls are mock-tested in CI. Credentialed live-provider/platform validation has not yet been executed in this repository, so the project should not yet claim a production TikTok deployment.
+本项目沿用仓库现有许可证；第三方模型、平台 API 和生成内容同时受各供应商条款约束。

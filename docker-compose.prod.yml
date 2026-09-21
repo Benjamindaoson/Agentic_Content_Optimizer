@@ -83,7 +83,9 @@ services:
     image: growth-flywheel-api:prod
     container_name: gf-prod-api
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 4
+    # Active multimodal jobs currently use an in-process execution lease.
+    # Keep one API worker until execution is moved to the distributed queue.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -93,10 +95,38 @@ services:
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECURE: "false"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       JWT_SECRET: ${JWT_SECRET}
+      RUNWAYML_API_SECRET: ${RUNWAYML_API_SECRET:-}
+      RUNWAYML_API_BASE: ${RUNWAYML_API_BASE:-https://api.dev.runwayml.com}
+      RUNWAYML_API_VERSION: ${RUNWAYML_API_VERSION:-2024-11-06}
+      RUNWAYML_MODEL: ${RUNWAYML_MODEL:-gen4.5}
+      RUNWAYML_RATIO: ${RUNWAYML_RATIO:-720:1280}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_API_BASE: ${ELEVENLABS_API_BASE:-https://api.elevenlabs.io}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_multilingual_v2}
+      MULTIMODAL_ARTIFACT_DIR: ${MULTIMODAL_ARTIFACT_DIR:-/app/runtime/multimodal}
+      MULTIMODAL_DURABLE_STORAGE_ENABLED: ${MULTIMODAL_DURABLE_STORAGE_ENABLED:-true}
+      MULTIMODAL_ARTIFACT_BUCKET: ${MULTIMODAL_ARTIFACT_BUCKET:-videos}
+      MULTIMODAL_LLM_PROVIDER: ${MULTIMODAL_LLM_PROVIDER:-claude}
+      MULTIMODAL_LLM_MODEL: ${MULTIMODAL_LLM_MODEL:-}
+      MULTIMODAL_JUDGE_ENABLED: ${MULTIMODAL_JUDGE_ENABLED:-false}
+      MULTIMODAL_JUDGE_MODEL: ${MULTIMODAL_JUDGE_MODEL:-gpt-5.6-luna}
+      MULTIMODAL_JUDGE_SAMPLE_COUNT: ${MULTIMODAL_JUDGE_SAMPLE_COUNT:-4}
+      MULTIMODAL_SUBTITLES_ENABLED: ${MULTIMODAL_SUBTITLES_ENABLED:-true}
+      MULTIMODAL_BRAND_TEXT: ${MULTIMODAL_BRAND_TEXT:-}
+      MULTIMODAL_BRAND_FONT: ${MULTIMODAL_BRAND_FONT:-DejaVu Sans}
+      MULTIMODAL_BRAND_FONT_SIZE: ${MULTIMODAL_BRAND_FONT_SIZE:-28}
+      FFMPEG_BIN: ${FFMPEG_BIN:-ffmpeg}
+      FFPROBE_BIN: ${FFPROBE_BIN:-ffprobe}
+      TIKTOK_CONTENT_POSTING_ENABLED: ${TIKTOK_CONTENT_POSTING_ENABLED:-false}
+      TIKTOK_ACCESS_TOKEN: ${TIKTOK_ACCESS_TOKEN:-}
+      TIKTOK_API_BASE: ${TIKTOK_API_BASE:-https://open.tiktokapis.com}
+      TIKTOK_PRIVACY_LEVEL: ${TIKTOK_PRIVACY_LEVEL:-SELF_ONLY}
     depends_on:
       postgres:
         condition: service_healthy

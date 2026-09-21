@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import math
 import random
@@ -25,7 +26,11 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_name(value: str) -> str:
-    return "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in value)
+    sanitized = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in value)
+    if sanitized == value:
+        return sanitized
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{sanitized}-{digest}"
 
 
 def _local_path(uri: str) -> Path:

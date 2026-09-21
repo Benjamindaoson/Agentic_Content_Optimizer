@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from pathlib import Path
 from typing import Any, Optional, Protocol
 
@@ -166,6 +167,10 @@ class MinIOArtifactStore:
 
     @staticmethod
     def _safe(value: str) -> str:
-        return "".join(
+        sanitized = "".join(
             char if char.isalnum() or char in "-_." else "_" for char in value
         )
+        if sanitized == value:
+            return sanitized
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+        return f"{sanitized}-{digest}"

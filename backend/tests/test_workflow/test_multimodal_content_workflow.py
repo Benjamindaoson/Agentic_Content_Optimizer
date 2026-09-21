@@ -1,5 +1,7 @@
 """Tests for the recoverable multimodal content-production workflow."""
 
+import asyncio
+
 import pytest
 
 from app.engine.agents.workflow.multimodal_content_workflow import (
@@ -9,6 +11,7 @@ from app.engine.agents.workflow.multimodal_content_workflow import (
     MultimodalContentProductionAgent,
     ProductionStatus,
     QualityReport,
+    RetryableProductionError,
     StoryboardShot,
 )
 
@@ -57,7 +60,7 @@ class FakeMediaToolkit:
         self.visual_calls += 1
         if self.fail_visual_once:
             self.fail_visual_once = False
-            raise RuntimeError("temporary video provider timeout")
+            raise RetryableProductionError("temporary video provider timeout")
         return MediaAsset(
             asset_id=f"asset-{shot.shot_id}",
             kind=AssetKind.VIDEO,
@@ -251,3 +254,128 @@ async def test_quality_gate_blocks_approval_and_publish():
     assert state.quality_report.passed is False
     assert approval.calls == 0
     assert publisher.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_permanent_provider_failure_is_not_retried():
+    class PermanentFailureMedia(FakeMediaToolkit):
+        async def generate_visual(self, shot, context):
+            self.visual_calls += 1
+            raise ValueError("invalid provider parameters")
+
+    media = PermanentFailureMedia()
+    agent = MultimodalContentProductionAgent(
+        planner=FakePlanner(),
+        media_toolkit=media,
+        evaluator=FakeEvaluator(),
+        checkpoint_store=InMemoryCheckpointStore(),
+        max_retries=3,
+        retry_backoff_seconds=0,
+    )
+
+    with pytest.raises(ValueError, match="invalid provider parameters"):
+        await agent.run(brief={"topic": "永久错误"}, job_id="permanent-error")
+
+    # Both storyboard shots may start concurrently, but neither permanent
+    # failure is retried.
+    assert media.visual_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_cancelled_job_cannot_be_approved():
+    store = InMemoryCheckpointStore()
+    agent = MultimodalContentProductionAgent(
+        planner=FakePlanner(),
+        media_toolkit=FakeMediaToolkit(),
+        evaluator=FakeEvaluator(),
+        checkpoint_store=store,
+        require_human_approval=True,
+    )
+    await agent.run(brief={"topic": "取消"}, job_id="cancelled-job")
+    await agent.cancel("cancelled-job")
+
+    with pytest.raises(ValueError, match="waiting for approval"):
+        await agent.approve("cancelled-job")
+
+
+@pytest.mark.asyncio
+async def test_concurrent_resume_publishes_once():
+    store = InMemoryCheckpointStore()
+    publisher = FakePublisher()
+    agent = MultimodalContentProductionAgent(
+        planner=FakePlanner(),
+        media_toolkit=FakeMediaToolkit(),
+        evaluator=FakeEvaluator(),
+        checkpoint_store=store,
+        publisher=publisher,
+        require_human_approval=True,
+    )
+    await agent.run(brief={"topic": "并发恢复"}, job_id="concurrent-job")
+    await agent.approve("concurrent-job")
+
+    first, second = await asyncio.gather(
+        agent.run(job_id="concurrent-job"),
+        agent.run(job_id="concurrent-job"),
+    )
+
+    assert first.status == ProductionStatus.COMPLETED
+    assert second.status == ProductionStatus.COMPLETED
+    assert publisher.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_publish_failure_is_not_retried_automatically():
+    class AmbiguousPublisher:
+        def __init__(self):
+            self.calls = 0
+
+        async def publish(self, state):
+            self.calls += 1
+            raise TimeoutError("platform accepted request but response timed out")
+
+    store = InMemoryCheckpointStore()
+    publisher = AmbiguousPublisher()
+    agent = MultimodalContentProductionAgent(
+        planner=FakePlanner(),
+        media_toolkit=FakeMediaToolkit(),
+        evaluator=FakeEvaluator(),
+        checkpoint_store=store,
+        approval_gate=FakeApprovalGate(),
+        publisher=publisher,
+    )
+
+    with pytest.raises(TimeoutError):
+        await agent.run(brief={"topic": "发布幂等"}, job_id="publish-job")
+    with pytest.raises(RuntimeError, match="reconcile"):
+        await agent.run(job_id="publish-job")
+
+    assert publisher.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_failed_parallel_generation_cancels_and_drains_siblings():
+    sibling_cancelled = asyncio.Event()
+
+    class MixedMedia(FakeMediaToolkit):
+        async def generate_visual(self, shot, context):
+            self.visual_calls += 1
+            if shot.shot_id == "shot-1":
+                await asyncio.sleep(0)
+                raise ValueError("permanent shot failure")
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                sibling_cancelled.set()
+                raise
+
+    agent = MultimodalContentProductionAgent(
+        planner=FakePlanner(),
+        media_toolkit=MixedMedia(),
+        evaluator=FakeEvaluator(),
+        checkpoint_store=InMemoryCheckpointStore(),
+    )
+
+    with pytest.raises(ValueError, match="permanent shot failure"):
+        await agent.run(brief={"topic": "并行失败"}, job_id="parallel-failure")
+
+    assert sibling_cancelled.is_set()

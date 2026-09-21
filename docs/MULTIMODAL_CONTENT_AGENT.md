@@ -1,4 +1,4 @@
-# Multimodal Content Production & Growth Agent
+# Multimodal Content Creation Agent
 
 ## Positioning
 
@@ -70,7 +70,7 @@ It adds a provider-neutral long-horizon orchestration layer with:
 1. **Script -> storyboard -> media -> assembly -> evaluation -> approval -> publish** execution.
 2. **Durable checkpoints after every completed stage**.
 3. **Resume by job ID** without replaying completed work.
-4. **Per-stage retry with exponential backoff and error history**.
+4. **Classified transient-error retry with exponential backoff and error history**.
 5. **Parallel visual generation with bounded concurrency**.
 6. **Multimodal quality gate before human approval and release**.
 7. **Explicit Human-in-the-loop release control**.
@@ -137,6 +137,13 @@ Examples:
 - If a job waits for approval, approval can be recorded and the same job resumes from the release stage.
 - Tool/provider failures are recorded with stage, attempt, error type, and message.
 
+Publishing is intentionally stricter than ordinary generation tools: the runtime
+persists a publish-attempt marker before the external side effect. If the remote
+platform may have accepted a request but the response is lost, the same job is
+not published again automatically; an operator must first reconcile the platform
+result. The standard Compose deployment uses one API worker until active jobs are
+moved to a distributed worker/queue.
+
 This is the core behavior required for long-running content production to be reliable rather than merely generative.
 
 ## Remaining Engineering Steps
@@ -155,6 +162,6 @@ The hardening modules above are implemented and deterministic CI coverage exists
 
 For portfolio/resume use, distinguish implemented engineering from live deployment evidence. The current codebase can be described as:
 
-> **Multimodal Content Production & Growth Agent** — Built a long-horizon multimodal agent that turns content briefs into scripts, storyboards, generated media, voice, assembled short-form videos, quality-reviewed releases, and performance-feedback loops, with checkpointed execution, bounded concurrency, failure recovery, human approval, and multi-platform delivery.
+> **Multimodal Content Creation Agent** — Built a long-horizon multimodal agent that turns content briefs into scripts, storyboards, generated media, voice, assembled short-form videos, quality-reviewed releases, and performance-feedback loops, with checkpointed execution, bounded concurrency, failure recovery, human approval, and multi-platform delivery.
 
 Do not describe Runway/ElevenLabs/TikTok as production-deployed integrations until the credentialed live E2E and platform-posting runs are actually completed.

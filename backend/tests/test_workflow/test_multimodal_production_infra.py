@@ -206,6 +206,32 @@ async def test_minio_artifact_store_persists_and_rematerializes(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_minio_job_path_sanitization_is_collision_resistant(tmp_path):
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"video")
+    client = FakeMinIOClient()
+    store = MinIOArtifactStore(
+        endpoint="minio:9000",
+        access_key="test",
+        secret_key="test",
+        bucket="videos",
+        cache_dir=str(tmp_path / "cache"),
+        client=client,
+    )
+    asset = MediaAsset(
+        asset_id="asset",
+        kind=AssetKind.VIDEO,
+        uri=str(source),
+        provider="test",
+    )
+
+    first = await store.persist(asset, job_id="a:b", category="visuals")
+    second = await store.persist(asset, job_id="a_b", category="visuals")
+
+    assert first.metadata["durable_uri"] != second.metadata["durable_uri"]
+
+
+@pytest.mark.asyncio
 async def test_runway_video_generator_polls_and_downloads(tmp_path):
     calls = {"task": 0}
 
@@ -633,3 +659,96 @@ async def test_multimodal_eval_requires_complete_artifacts(tmp_path):
     assert report.passed is True
     assert report.score == 1.0
     assert report.issues == []
+
+
+@pytest.mark.asyncio
+async def test_multimodal_eval_blocks_incomplete_script(tmp_path):
+    final_video = tmp_path / "final.mp4"
+    final_video.write_bytes(b"video")
+    state = ProductionState(
+        job_id="incomplete-script",
+        brief={"topic": "产品"},
+        platform="douyin",
+        script={"title": "标题", "hook": "开场", "body": "正文"},
+        storyboard=[
+            StoryboardShot(
+                shot_id="s1",
+                narration="旁白",
+                visual_prompt="视觉",
+                duration_seconds=5,
+            )
+        ],
+        visual_assets={
+            "s1": MediaAsset(
+                asset_id="v1",
+                kind=AssetKind.VIDEO,
+                uri=str(tmp_path / "shot.mp4"),
+                provider="runway",
+            )
+        },
+        final_video=MediaAsset(
+            asset_id="final",
+            kind=AssetKind.FINAL_VIDEO,
+            uri=str(final_video),
+            provider="ffmpeg",
+        ),
+    )
+
+    report = await ProbeHarness().evaluate(state)
+
+    assert report.passed is False
+    assert "script_incomplete" in report.issues
+
+
+@pytest.mark.asyncio
+async def test_multimodal_eval_blocks_duration_mismatch(tmp_path):
+    class TruncatedProbeHarness(ProbeHarness):
+        async def _probe(self, path: Path):
+            return {
+                "streams": [
+                    {"codec_type": "video"},
+                    {"codec_type": "audio"},
+                ],
+                "format": {"duration": "1.0"},
+            }
+
+    final_video = tmp_path / "final.mp4"
+    final_video.write_bytes(b"video")
+    state = ProductionState(
+        job_id="duration-mismatch",
+        brief={"topic": "产品"},
+        platform="douyin",
+        script={
+            "title": "标题",
+            "hook": "开场",
+            "body": "正文",
+            "cta": "行动",
+        },
+        storyboard=[
+            StoryboardShot(
+                shot_id="s1",
+                narration="旁白",
+                visual_prompt="视觉",
+                duration_seconds=60,
+            )
+        ],
+        visual_assets={
+            "s1": MediaAsset(
+                asset_id="v1",
+                kind=AssetKind.VIDEO,
+                uri=str(tmp_path / "shot.mp4"),
+                provider="runway",
+            )
+        },
+        final_video=MediaAsset(
+            asset_id="final",
+            kind=AssetKind.FINAL_VIDEO,
+            uri=str(final_video),
+            provider="ffmpeg",
+        ),
+    )
+
+    report = await TruncatedProbeHarness().evaluate(state)
+
+    assert report.passed is False
+    assert any(issue.startswith("duration_mismatch") for issue in report.issues)
